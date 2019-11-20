@@ -8,23 +8,26 @@
 // TODO fix this global
 global_var bool running = true;
 
-global_var int BYTES_PER_PIXEL = 4;
+struct win32_buffer {
 
-global_var BITMAPINFO bitmapInfo;
-global_var void* bitmapMemory;
-global_var int bitmapWidth;
-global_var int bitmapHeight;
+	BITMAPINFO info;
+	void* memory;
+	int width;
+	int height;
+	int pitch;
+	int bytesPerPixel = 4;
+};
+
+global_var win32_buffer backbuffer;
+
 
 internal void
-renderWeirdGradient(int xOffset, int yOffset)
+renderWeirdGradient(win32_buffer buf, int xOffset, int yOffset)
 {
-	int width = bitmapWidth;
-	int height = bitmapHeight;
-	int pitch = width * BYTES_PER_PIXEL;
-	uint8_t *row = (uint8_t*)bitmapMemory;
-	for (int y = 0; y < bitmapHeight; ++y) {
+	uint8_t *row = (uint8_t*)buf.memory;
+	for (int y = 0; y < buf.height; ++y) {
 		uint32_t* pixel = (uint32_t*)row;
-		for (int x = 0; x < bitmapWidth; ++x) {
+		for (int x = 0; x < buf.width; ++x) {
 			/*
 			pixel in memory:  00 00 00 00 (four hexadecimal values: B G R padding)
 			*/
@@ -32,49 +35,50 @@ renderWeirdGradient(int xOffset, int yOffset)
 			uint8_t g = (y + yOffset);
 			*pixel++ = ((g << 8) | b) ;
 		}
-		row += pitch;
+		row += buf.pitch;
 	}
 }
 
 internal void
-win32ResizeDIBSection(int width, int height)
+win32ResizeDIBSection(win32_buffer *buf, int width, int height)
 {
-	if (bitmapMemory) {
-		VirtualFree(bitmapMemory, 0, MEM_RELEASE);
+	if (buf->memory) {
+		VirtualFree(buf->memory, 0, MEM_RELEASE);
 	}
 
-	bitmapWidth = width;
-	bitmapHeight = height;
+	buf->width = width;
+	buf->height = height;
 
-	bitmapInfo.bmiHeader.biSize = sizeof(bitmapInfo.bmiHeader);
-	bitmapInfo.bmiHeader.biWidth = width;
-	bitmapInfo.bmiHeader.biHeight = -height;
-	bitmapInfo.bmiHeader.biPlanes = 1;
-	bitmapInfo.bmiHeader.biBitCount = 32;
-	bitmapInfo.bmiHeader.biCompression = BI_RGB;
+	buf->info.bmiHeader.biSize = sizeof(buf->info.bmiHeader);
+	buf->info.bmiHeader.biWidth = buf->width;
+	buf->info.bmiHeader.biHeight = -buf->height;
+	buf->info.bmiHeader.biPlanes = 1;
+	buf->info.bmiHeader.biBitCount = 32;
+	buf->info.bmiHeader.biCompression = BI_RGB;
 
 	//after clarification about stretchDIBits and BitBlt, we know
 	// we can allocate the memory ourselves
-	int bitmapMemorySize = BYTES_PER_PIXEL * bitmapWidth * bitmapHeight;
-	bitmapMemory = VirtualAlloc(0, bitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
+	int bitmapMemorySize = buf->bytesPerPixel * buf->width * buf->height;
+	buf->memory = VirtualAlloc(0, bitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
 
 
+	buf->pitch = buf->width * buf->bytesPerPixel;
 	// TODO maybe clear to black
 }
 
 internal void
-win32UpdateWindow(HDC hdc, RECT *wndRect, LONG x, LONG y, LONG width, LONG height)
+win32DisplayBufferInWindow(HDC hdc, RECT wndRect, win32_buffer *buf, LONG x, LONG y, LONG width, LONG height)
 {
 	//OutputDebugString(" win32UpdateWindow is actually getting called\n");
 
-	int wndWidth = wndRect->right - wndRect->left;
-	int wndHeight = wndRect->bottom - wndRect->top;
+	int wndWidth = wndRect.right - wndRect.left;
+	int wndHeight = wndRect.bottom - wndRect.top;
 	StretchDIBits(
 		hdc,
-		0, 0, bitmapWidth, bitmapHeight,
+		0, 0, buf->width, buf->height,
 		0, 0, wndWidth, wndHeight,
-		bitmapMemory,
-		&bitmapInfo,
+		buf->memory,
+		&buf->info,
 		DIB_RGB_COLORS,
 		SRCCOPY
 		);
@@ -98,7 +102,7 @@ MainWndCallback(HWND hwnd,
 			int w = rect.right - rect.left;
 			int h = rect.bottom - rect.top;
 
-			win32ResizeDIBSection(w, h);
+			win32ResizeDIBSection(&backbuffer, w, h);
             OutputDebugString("HUEHUSE WM_SIZE\n");
             break;
         }
@@ -128,7 +132,7 @@ MainWndCallback(HWND hwnd,
 			LONG y = p.rcPaint.top;
             LONG h = p.rcPaint.bottom - p.rcPaint.top;
             LONG w = p.rcPaint.right - p.rcPaint.left;
-			win32UpdateWindow(devCtx, &rect, x, y, h, w);
+			win32DisplayBufferInWindow(devCtx, rect, &backbuffer, x, y, h, w);
             //PatBlt(devCtx, x, y, w, h, WHITENESS);
             EndPaint(hwnd, &p);
             break;
@@ -187,13 +191,13 @@ WinMain(HINSTANCE hInstance,
                     DispatchMessage(&msg);
 				}
 
-				renderWeirdGradient(xOffset, yOffset);
+				renderWeirdGradient(backbuffer, xOffset, yOffset);
 				HDC hdc = GetDC(wnd);
 				RECT wndRect;
 				GetClientRect(wnd, &wndRect);
 				int wndWidth = wndRect.right - wndRect.left;
 				int wndHeight = wndRect.bottom - wndRect.top;
-				win32UpdateWindow(hdc, &wndRect, 0, 0, wndWidth, wndHeight);
+				win32DisplayBufferInWindow(hdc, wndRect, &backbuffer, 0, 0, wndWidth, wndHeight);
 				ReleaseDC(wnd, hdc);
 				++xOffset;
 				++yOffset;
