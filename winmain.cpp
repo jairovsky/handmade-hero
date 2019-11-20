@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <stdint.h>
 
 #define internal static
 #define local_persist static
@@ -6,52 +7,72 @@
 
 // TODO fix this global
 global_var bool running = true;
+
+global_var int BYTES_PER_PIXEL = 4;
+
 global_var BITMAPINFO bitmapInfo;
 global_var void* bitmapMemory;
-global_var HBITMAP bitmapHndl;
-global_var HDC bitmapDeviceCtx;
+global_var int bitmapWidth;
+global_var int bitmapHeight;
+
+internal void
+renderWeirdGradient(int xOffset, int yOffset)
+{
+	int width = bitmapWidth;
+	int height = bitmapHeight;
+	int pitch = width * BYTES_PER_PIXEL;
+	uint8_t *row = (uint8_t*)bitmapMemory;
+	for (int y = 0; y < bitmapHeight; ++y) {
+		uint32_t* pixel = (uint32_t*)row;
+		for (int x = 0; x < bitmapWidth; ++x) {
+			/*
+			pixel in memory:  00 00 00 00 (four hexadecimal values: B G R padding)
+			*/
+			uint8_t b = (x + xOffset);
+			uint8_t g = (y + yOffset);
+			*pixel++ = ((g << 8) | b) ;
+		}
+		row += pitch;
+	}
+}
 
 internal void
 win32ResizeDIBSection(int width, int height)
 {
-
-	if (bitmapHndl) {
-		DeleteObject(bitmapHndl);
+	if (bitmapMemory) {
+		VirtualFree(bitmapMemory, 0, MEM_RELEASE);
 	}
 
-	if (!bitmapDeviceCtx) {
-		bitmapDeviceCtx = CreateCompatibleDC(0);
-	}
+	bitmapWidth = width;
+	bitmapHeight = height;
+
 	bitmapInfo.bmiHeader.biSize = sizeof(bitmapInfo.bmiHeader);
 	bitmapInfo.bmiHeader.biWidth = width;
-	bitmapInfo.bmiHeader.biHeight = height;
+	bitmapInfo.bmiHeader.biHeight = -height;
 	bitmapInfo.bmiHeader.biPlanes = 1;
 	bitmapInfo.bmiHeader.biBitCount = 32;
 	bitmapInfo.bmiHeader.biCompression = BI_RGB;
-//	bitmapInfo.bmiHeader.biSizeImage = 0;
-//	bitmapInfo.bmiHeader.biXPelsPerMeter = 0;
-//	bitmapInfo.bmiHeader.biYPelsPerMeter = 0;
-//	bitmapInfo.bmiHeader.biClrUsed = 0;
-//	bitmapInfo.bmiHeader.biClrImportant = 0;
 
-	bitmapHndl = CreateDIBSection(
-		bitmapDeviceCtx,
-		&bitmapInfo,
-		DIB_RGB_COLORS,
-		&bitmapMemory,
-		0,
-		0);
+	//after clarification about stretchDIBits and BitBlt, we know
+	// we can allocate the memory ourselves
+	int bitmapMemorySize = BYTES_PER_PIXEL * bitmapWidth * bitmapHeight;
+	bitmapMemory = VirtualAlloc(0, bitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
+
+
+	// TODO maybe clear to black
 }
 
 internal void
-win32UpdateWindow(HDC hdc, LONG x, LONG y, LONG width, LONG height)
+win32UpdateWindow(HDC hdc, RECT *wndRect, LONG x, LONG y, LONG width, LONG height)
 {
-	OutputDebugString(" win32UpdateWindow is actually getting called\n");
+	//OutputDebugString(" win32UpdateWindow is actually getting called\n");
 
+	int wndWidth = wndRect->right - wndRect->left;
+	int wndHeight = wndRect->bottom - wndRect->top;
 	StretchDIBits(
 		hdc,
-		x, y, width, height,
-		x, y, width, height,
+		0, 0, bitmapWidth, bitmapHeight,
+		0, 0, wndWidth, wndHeight,
 		bitmapMemory,
 		&bitmapInfo,
 		DIB_RGB_COLORS,
@@ -101,12 +122,14 @@ MainWndCallback(HWND hwnd,
         {
             PAINTSTRUCT p;
             HDC devCtx = BeginPaint(hwnd, &p);
+			RECT rect;
+			GetClientRect(hwnd, &rect);
 			LONG x = p.rcPaint.left;
 			LONG y = p.rcPaint.top;
             LONG h = p.rcPaint.bottom - p.rcPaint.top;
             LONG w = p.rcPaint.right - p.rcPaint.left;
-			win32UpdateWindow(devCtx, x, y, h, w);
-            PatBlt(devCtx, x, y, w, h, WHITENESS);
+			win32UpdateWindow(devCtx, &rect, x, y, h, w);
+            //PatBlt(devCtx, x, y, w, h, WHITENESS);
             EndPaint(hwnd, &p);
             break;
         }
@@ -152,16 +175,28 @@ WinMain(HINSTANCE hInstance,
 
         if (wnd) {
             MSG msg;
+			int xOffset = 0;
+			int yOffset = 0;
             while (running) {
-                BOOL msgRes = GetMessage(&msg, 0, 0, 0);
+				while (PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) {
+					if (msg.message == WM_QUIT) {
+						running = false;
+					}
 
-                if (msgRes >= 0) {
                     TranslateMessage(&msg);
                     DispatchMessage(&msg);
-                } else {
-                    OutputDebugString("Error receiving msg");
-                    break;
-                }
+				}
+
+				renderWeirdGradient(xOffset, yOffset);
+				HDC hdc = GetDC(wnd);
+				RECT wndRect;
+				GetClientRect(wnd, &wndRect);
+				int wndWidth = wndRect.right - wndRect.left;
+				int wndHeight = wndRect.bottom - wndRect.top;
+				win32UpdateWindow(hdc, &wndRect, 0, 0, wndWidth, wndHeight);
+				ReleaseDC(wnd, hdc);
+				++xOffset;
+				++yOffset;
             }
         } else {
             //TODO
