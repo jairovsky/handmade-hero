@@ -8,6 +8,7 @@
 // TODO fix this global
 global_var bool running = true;
 
+
 struct win32_buffer {
 
 	BITMAPINFO info;
@@ -39,6 +40,23 @@ renderWeirdGradient(win32_buffer buf, int xOffset, int yOffset)
 	}
 }
 
+struct win32_window_dimension
+{
+	int width;
+	int height;
+};
+
+win32_window_dimension
+win32GetWindowDimension(HWND hwnd)
+{
+	win32_window_dimension dim;
+	RECT rect;
+	GetClientRect(hwnd, &rect);
+	dim.width = rect.right - rect.left;
+	dim.height = rect.bottom - rect.top;
+	return dim;
+}
+
 internal void
 win32ResizeDIBSection(win32_buffer *buf, int width, int height)
 {
@@ -61,28 +79,22 @@ win32ResizeDIBSection(win32_buffer *buf, int width, int height)
 	int bitmapMemorySize = buf->bytesPerPixel * buf->width * buf->height;
 	buf->memory = VirtualAlloc(0, bitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
 
-
 	buf->pitch = buf->width * buf->bytesPerPixel;
 	// TODO maybe clear to black
 }
 
 internal void
-win32DisplayBufferInWindow(HDC hdc, RECT wndRect, win32_buffer *buf, LONG x, LONG y, LONG width, LONG height)
+win32DisplayBufferInWindow(HDC hdc, int wWidth, int wHeight, win32_buffer *buf)
 {
-	//OutputDebugString(" win32UpdateWindow is actually getting called\n");
-
-	int wndWidth = wndRect.right - wndRect.left;
-	int wndHeight = wndRect.bottom - wndRect.top;
 	StretchDIBits(
 		hdc,
 		0, 0, buf->width, buf->height,
-		0, 0, wndWidth, wndHeight,
+		0, 0, wWidth, wHeight,
 		buf->memory,
 		&buf->info,
 		DIB_RGB_COLORS,
 		SRCCOPY
-		);
-
+	);
 }
 
 LRESULT CALLBACK
@@ -91,18 +103,13 @@ MainWndCallback(HWND hwnd,
            WPARAM wParam,
            LPARAM lParam)
 {
-
     LRESULT r = 0;
 
     switch (uMsg) {
         case WM_SIZE:
         {
-			RECT rect;
-			GetClientRect(hwnd, &rect);
-			int w = rect.right - rect.left;
-			int h = rect.bottom - rect.top;
-
-			win32ResizeDIBSection(&backbuffer, w, h);
+			win32_window_dimension d = win32GetWindowDimension(hwnd);
+			win32ResizeDIBSection(&backbuffer, d.width, d.height);
             OutputDebugString("HUEHUSE WM_SIZE\n");
             break;
         }
@@ -124,16 +131,10 @@ MainWndCallback(HWND hwnd,
 
         case WM_PAINT:
         {
+			win32_window_dimension d = win32GetWindowDimension(hwnd);
             PAINTSTRUCT p;
             HDC devCtx = BeginPaint(hwnd, &p);
-			RECT rect;
-			GetClientRect(hwnd, &rect);
-			LONG x = p.rcPaint.left;
-			LONG y = p.rcPaint.top;
-            LONG h = p.rcPaint.bottom - p.rcPaint.top;
-            LONG w = p.rcPaint.right - p.rcPaint.left;
-			win32DisplayBufferInWindow(devCtx, rect, &backbuffer, x, y, h, w);
-            //PatBlt(devCtx, x, y, w, h, WHITENESS);
+			win32DisplayBufferInWindow(devCtx, d.width, d.height, &backbuffer);
             EndPaint(hwnd, &p);
             break;
         }
@@ -193,11 +194,8 @@ WinMain(HINSTANCE hInstance,
 
 				renderWeirdGradient(backbuffer, xOffset, yOffset);
 				HDC hdc = GetDC(wnd);
-				RECT wndRect;
-				GetClientRect(wnd, &wndRect);
-				int wndWidth = wndRect.right - wndRect.left;
-				int wndHeight = wndRect.bottom - wndRect.top;
-				win32DisplayBufferInWindow(hdc, wndRect, &backbuffer, 0, 0, wndWidth, wndHeight);
+				win32_window_dimension d = win32GetWindowDimension(wnd);
+				win32DisplayBufferInWindow(hdc, d.width, d.height, &backbuffer);
 				ReleaseDC(wnd, hdc);
 				++xOffset;
 				++yOffset;
