@@ -8,7 +8,6 @@
 // TODO fix this global
 global_var bool running = true;
 
-
 struct win32_buffer {
 
 	BITMAPINFO info;
@@ -88,8 +87,8 @@ win32DisplayBufferInWindow(HDC hdc, int wWidth, int wHeight, win32_buffer *buf)
 {
 	StretchDIBits(
 		hdc,
-		0, 0, buf->width, buf->height,
 		0, 0, wWidth, wHeight,
+		0, 0, buf->width, buf->height,
 		buf->memory,
 		&buf->info,
 		DIB_RGB_COLORS,
@@ -108,9 +107,6 @@ MainWndCallback(HWND hwnd,
     switch (uMsg) {
         case WM_SIZE:
         {
-			win32_window_dimension d = win32GetWindowDimension(hwnd);
-			win32ResizeDIBSection(&backbuffer, d.width, d.height);
-            OutputDebugString("HUEHUSE WM_SIZE\n");
             break;
         }
 
@@ -154,6 +150,7 @@ WinMain(HINSTANCE hInstance,
         LPSTR     lpCmdLine,
         int       nShowCmd)
 {
+	win32ResizeDIBSection(&backbuffer, 1280, 720);
 
     WNDCLASS wc = {};
 
