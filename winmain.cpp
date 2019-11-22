@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <stdint.h>
+#include <xinput.h>
 
 #define internal static
 #define local_persist static
@@ -7,6 +8,7 @@
 
 // TODO fix this global
 global_var bool running = true;
+
 
 struct win32_buffer {
 
@@ -54,6 +56,36 @@ win32GetWindowDimension(HWND hwnd)
 	dim.width = rect.right - rect.left;
 	dim.height = rect.bottom - rect.top;
 	return dim;
+}
+
+#define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
+typedef X_INPUT_GET_STATE(xinput_get_state);
+X_INPUT_GET_STATE(XInputGetStateStub)
+{
+	return 0;
+}
+global_var xinput_get_state *XInputGetState_ = XInputGetStateStub;
+#define XInputGetState XInputGetState_
+
+#define X_INPUT_SET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_VIBRATION *pVibration)
+typedef X_INPUT_SET_STATE(xinput_set_state);
+X_INPUT_SET_STATE(XInputSetStateStub)
+{
+	return 0;
+}
+global_var xinput_set_state *XInputSetState_ = XInputSetStateStub;
+#define XInputSetState XInputSetState_
+
+
+internal void
+win32LoadXInput(void)
+{
+	HMODULE xinputLib = LoadLibrary("xinput1_3.dll");
+	if (xinputLib)
+	{
+		XInputGetState = (xinput_get_state *)GetProcAddress(xinputLib, "XInputGetState");
+		XInputSetState = (xinput_set_state *)GetProcAddress(xinputLib, "XInputSetState");
+	}
 }
 
 internal void
@@ -135,6 +167,41 @@ MainWndCallback(HWND hwnd,
             break;
         }
 
+		case WM_SYSKEYDOWN:
+		case WM_SYSKEYUP:
+		case WM_KEYDOWN:
+		case WM_KEYUP:
+		{
+			uint32_t kCode = wParam;
+			bool wasDown = ((lParam & (1 << 30)) != 0);
+			bool isDown = ((lParam & (1 << 31)) == 0);
+			if (isDown != wasDown)
+			{
+				switch (kCode)
+				{
+				case 'W':
+					OutputDebugString("hey you pressed W on keyboard\n");
+					break;
+				case 'S':
+				case 'D':
+				case 'A':
+				case 'Q':
+				case 'E':
+				case VK_UP:
+				case VK_LEFT:
+				case VK_RIGHT:
+				case VK_DOWN:
+				case VK_ESCAPE:
+					running = false;
+					break;
+				case VK_SPACE:
+					break;
+
+				}
+			}
+			break;
+		}
+
         default:
         {
             r = DefWindowProc(hwnd, uMsg, wParam, lParam);
@@ -150,6 +217,7 @@ WinMain(HINSTANCE hInstance,
         LPSTR     lpCmdLine,
         int       nShowCmd)
 {
+	win32LoadXInput();
 	win32ResizeDIBSection(&backbuffer, 1280, 720);
 
     WNDCLASS wc = {};
@@ -189,13 +257,51 @@ WinMain(HINSTANCE hInstance,
                     DispatchMessage(&msg);
 				}
 
+				XINPUT_STATE inputState;
+				DWORD controller = 0;
+				DWORD gotInput = XInputGetState(controller, &inputState);
+				if (gotInput == ERROR_SUCCESS) {
+					XINPUT_GAMEPAD* pad = &inputState.Gamepad;
+					bool padUp = (pad->wButtons & XINPUT_GAMEPAD_DPAD_UP);
+					bool padDown = (pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN);
+					bool padLeft = (pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT);
+					bool padRight = (pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT);
+					bool padStart = (pad->wButtons & XINPUT_GAMEPAD_START);
+					bool padBack = (pad->wButtons & XINPUT_GAMEPAD_BACK);
+					bool padLShoulder = (pad->wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER);
+					bool padRShoulder = (pad->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER);
+					bool padA = (pad->wButtons & XINPUT_GAMEPAD_A);
+					bool padB = (pad->wButtons & XINPUT_GAMEPAD_B);
+					bool padX = (pad->wButtons & XINPUT_GAMEPAD_X);
+					bool padY = (pad->wButtons & XINPUT_GAMEPAD_Y);
+					int16_t stickX = pad->sThumbLX;
+					int16_t stickY = pad->sThumbLY;
+
+					if (padUp)
+					{
+						++yOffset;
+					}
+					if (padDown)
+					{
+						--yOffset;
+					}
+					if (padLeft)
+					{
+						++xOffset;
+					}
+					if (padRight)
+					{
+						--xOffset;
+					}
+				}
+				else {
+					// TODO handle controller disconnected
+				}
 				renderWeirdGradient(backbuffer, xOffset, yOffset);
 				HDC hdc = GetDC(wnd);
 				win32_window_dimension d = win32GetWindowDimension(wnd);
 				win32DisplayBufferInWindow(hdc, d.width, d.height, &backbuffer);
 				ReleaseDC(wnd, hdc);
-				++xOffset;
-				++yOffset;
             }
         } else {
             //TODO
