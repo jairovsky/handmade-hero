@@ -128,6 +128,10 @@ win32DisplayBufferInWindow(HDC hdc, int wWidth, int wHeight, win32_buffer *buf)
 	);
 }
 
+
+#define KeyWasDown(param) ((param & (1 << 30))) != 0
+#define KeyIsDown(param) ((param & (1 << 31))) == 0
+
 LRESULT CALLBACK
 MainWndCallback(HWND hwnd,
            UINT uMsg,
@@ -173,9 +177,7 @@ MainWndCallback(HWND hwnd,
 		case WM_KEYUP:
 		{
 			uint32_t kCode = wParam;
-			bool wasDown = ((lParam & (1 << 30)) != 0);
-			bool isDown = ((lParam & (1 << 31)) == 0);
-			if (isDown != wasDown)
+			if (KeyIsDown(lParam) != KeyWasDown(lParam))
 			{
 				switch (kCode)
 				{
@@ -196,7 +198,6 @@ MainWndCallback(HWND hwnd,
 					break;
 				case VK_SPACE:
 					break;
-
 				}
 			}
 			break;
