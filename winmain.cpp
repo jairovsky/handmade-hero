@@ -103,6 +103,8 @@ DIRECTSOUND_CREATE(DirectSoundCreateStub)
 global_var dsound_create* DirectSoundCreate_ = DirectSoundCreateStub;
 #define DirectSoundCreate DirectSoundCreate_
 
+global_var LPDIRECTSOUNDBUFFER soundBuf;
+
 internal void
 win32InitDSound(HWND hwnd, int bufSize, int samplesPerSec)
 {
@@ -135,13 +137,12 @@ win32InitDSound(HWND hwnd, int bufSize, int samplesPerSec)
 						OutputDebugString("dsound buffer created successfully\n");
 					}
 				}
-				LPDIRECTSOUNDBUFFER dsoundSecondaryBuf;
 				bufDesc = {};
 				bufDesc.dwSize = sizeof(bufDesc);
 				bufDesc.dwFlags = 0;
 				bufDesc.dwBufferBytes = bufSize;
 				bufDesc.lpwfxFormat = &format;
-				if (SUCCEEDED(dsound->CreateSoundBuffer(&bufDesc, &dsoundSecondaryBuf, 0)))
+				if (SUCCEEDED(dsound->CreateSoundBuffer(&bufDesc, &soundBuf, 0)))
 				{
 					OutputDebugString("secondary dsound buffer created successfully");
 				}
@@ -177,7 +178,7 @@ win32ResizeDIBSection(win32_buffer *buf, int width, int height)
 }
 
 internal void
-win32DisplayBufferInWindow(HDC hdc, int wWidth, int wHeight, win32_buffer *buf)
+win32DisplayBufferInWindow(win32_buffer *buf, HDC hdc, int wWidth, int wHeight)
 {
 	StretchDIBits(
 		hdc,
@@ -228,7 +229,7 @@ MainWndCallback(HWND hwnd,
 			win32_window_dimension d = win32GetWindowDimension(hwnd);
             PAINTSTRUCT p;
             HDC devCtx = BeginPaint(hwnd, &p);
-			win32DisplayBufferInWindow(devCtx, d.width, d.height, &backbuffer);
+			win32DisplayBufferInWindow(&backbuffer, devCtx, d.width, d.height);
             EndPaint(hwnd, &p);
             break;
         }
@@ -314,6 +315,8 @@ WinMain(HINSTANCE hInstance,
 
         if (wnd) {
 
+			HDC hdc = GetDC(wnd);
+
 			win32InitDSound(wnd, 48000, 48000 * sizeof(int16_t) * 2);
 
             MSG msg;
@@ -370,10 +373,8 @@ WinMain(HINSTANCE hInstance,
 					// TODO handle controller disconnected
 				}
 				renderWeirdGradient(backbuffer, xOffset, yOffset);
-				HDC hdc = GetDC(wnd);
 				win32_window_dimension d = win32GetWindowDimension(wnd);
-				win32DisplayBufferInWindow(hdc, d.width, d.height, &backbuffer);
-				ReleaseDC(wnd, hdc);
+				win32DisplayBufferInWindow(&backbuffer, hdc, d.width, d.height);
             }
         } else {
             //TODO
