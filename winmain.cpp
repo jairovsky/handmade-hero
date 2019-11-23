@@ -132,9 +132,9 @@ win32DisplayBufferInWindow(HDC hdc, int wWidth, int wHeight, win32_buffer *buf)
 	);
 }
 
-
 #define KeyWasDown(param) ((param & (1 << 30))) != 0
 #define KeyIsDown(param) ((param & (1 << 31))) == 0
+#define AltIsDown(param) ((param & (1 << 29))) != 0
 
 LRESULT CALLBACK
 MainWndCallback(HWND hwnd,
@@ -202,6 +202,12 @@ MainWndCallback(HWND hwnd,
 					break;
 				case VK_SPACE:
 					break;
+
+				case VK_F4:
+					if (AltIsDown(lParam))
+					{
+						running = false;
+					}
 				}
 			}
 			break;
