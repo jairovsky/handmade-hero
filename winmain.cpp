@@ -113,13 +113,14 @@ win32InitDSound(HWND hwnd, int bufSize, int samplesPerSec)
 		LPDIRECTSOUND dsound;
 		if (DirectSoundCreate && SUCCEEDED(DirectSoundCreate(0, &dsound, 0)))
 		{
-			WAVEFORMATEX format ;
+			WAVEFORMATEX format = {};
 			format.wFormatTag = WAVE_FORMAT_PCM;
 			format.nChannels = 2;
 			format.nSamplesPerSec = samplesPerSec;
 			format.wBitsPerSample = 16;
 			format.nBlockAlign = (format.nChannels * format.wBitsPerSample) / 8;
 			format.nAvgBytesPerSec = samplesPerSec * format.nBlockAlign;
+			format.cbSize = 0;
 			if (SUCCEEDED(dsound->SetCooperativeLevel(hwnd, DSSCL_PRIORITY)))
 			{
 				LPDIRECTSOUNDBUFFER dsoundBuf;
