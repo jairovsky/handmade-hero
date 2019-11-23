@@ -1,6 +1,7 @@
 #include <windows.h>
 #include <stdint.h>
 #include <xinput.h>
+#include <dsound.h>
 
 #define internal static
 #define local_persist static
@@ -89,6 +90,62 @@ win32LoadXInput(void)
 	{
 		XInputGetState = (xinput_get_state *)GetProcAddress(xinputLib, "XInputGetState");
 		XInputSetState = (xinput_set_state *)GetProcAddress(xinputLib, "XInputSetState");
+	}
+}
+
+
+#define DIRECTSOUND_CREATE(name) HRESULT WINAPI name(LPCGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter)
+typedef DIRECTSOUND_CREATE(dsound_create);
+DIRECTSOUND_CREATE(DirectSoundCreateStub)
+{
+	return DSERR_NODRIVER;
+}
+global_var dsound_create* DirectSoundCreate_ = DirectSoundCreateStub;
+#define DirectSoundCreate DirectSoundCreate_
+
+internal void
+win32InitDSound(HWND hwnd, int bufSize, int samplesPerSec)
+{
+	HMODULE dsoundLib = LoadLibrary("dsound.dll");
+	if (dsoundLib)
+	{
+		DirectSoundCreate = (dsound_create*)GetProcAddress(dsoundLib, "DirectSoundCreate");
+		LPDIRECTSOUND dsound;
+		if (DirectSoundCreate && SUCCEEDED(DirectSoundCreate(0, &dsound, 0)))
+		{
+			WAVEFORMATEX format ;
+			format.wFormatTag = WAVE_FORMAT_PCM;
+			format.nChannels = 2;
+			format.nSamplesPerSec = samplesPerSec;
+			format.wBitsPerSample = 16;
+			format.nBlockAlign = (format.nChannels * format.wBitsPerSample) / 8;
+			format.nAvgBytesPerSec = samplesPerSec * format.nBlockAlign;
+			if (SUCCEEDED(dsound->SetCooperativeLevel(hwnd, DSSCL_PRIORITY)))
+			{
+				LPDIRECTSOUNDBUFFER dsoundBuf;
+				DSBUFFERDESC bufDesc = {};
+				bufDesc.dwSize = sizeof(bufDesc);
+				bufDesc.dwFlags = DSBCAPS_PRIMARYBUFFER;
+				bufDesc.dwBufferBytes = 0;
+				if (SUCCEEDED(dsound->CreateSoundBuffer(&bufDesc, &dsoundBuf, 0)))
+				{
+					if (SUCCEEDED(dsoundBuf->SetFormat(&format)))
+					{
+						OutputDebugString("dsound buffer created successfully\n");
+					}
+				}
+				LPDIRECTSOUNDBUFFER dsoundSecondaryBuf;
+				bufDesc = {};
+				bufDesc.dwSize = sizeof(bufDesc);
+				bufDesc.dwFlags = 0;
+				bufDesc.dwBufferBytes = bufSize;
+				bufDesc.lpwfxFormat = &format;
+				if (SUCCEEDED(dsound->CreateSoundBuffer(&bufDesc, &dsoundSecondaryBuf, 0)))
+				{
+					OutputDebugString("secondary dsound buffer created successfully");
+				}
+			}
+		}
 	}
 }
 
@@ -255,6 +312,9 @@ WinMain(HINSTANCE hInstance,
             0);
 
         if (wnd) {
+
+			win32InitDSound(wnd, 48000, 48000 * sizeof(int16_t) * 2);
+
             MSG msg;
 			int xOffset = 0;
 			int yOffset = 0;
