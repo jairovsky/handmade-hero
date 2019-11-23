@@ -80,7 +80,11 @@ global_var xinput_set_state *XInputSetState_ = XInputSetStateStub;
 internal void
 win32LoadXInput(void)
 {
-	HMODULE xinputLib = LoadLibrary("xinput1_3.dll");
+	HMODULE xinputLib = LoadLibrary("xinput1_4.dll");
+	if (!xinputLib)
+	{
+		xinputLib = LoadLibrary("xinput1_3.dll");
+	}
 	if (xinputLib)
 	{
 		XInputGetState = (xinput_get_state *)GetProcAddress(xinputLib, "XInputGetState");
