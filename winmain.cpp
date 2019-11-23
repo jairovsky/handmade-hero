@@ -62,7 +62,7 @@ win32GetWindowDimension(HWND hwnd)
 typedef X_INPUT_GET_STATE(xinput_get_state);
 X_INPUT_GET_STATE(XInputGetStateStub)
 {
-	return 0;
+	return ERROR_DEVICE_NOT_CONNECTED;
 }
 global_var xinput_get_state *XInputGetState_ = XInputGetStateStub;
 #define XInputGetState XInputGetState_
@@ -71,7 +71,7 @@ global_var xinput_get_state *XInputGetState_ = XInputGetStateStub;
 typedef X_INPUT_SET_STATE(xinput_set_state);
 X_INPUT_SET_STATE(XInputSetStateStub)
 {
-	return 0;
+	return ERROR_DEVICE_NOT_CONNECTED;
 }
 global_var xinput_set_state *XInputSetState_ = XInputSetStateStub;
 #define XInputSetState XInputSetState_
