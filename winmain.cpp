@@ -106,7 +106,7 @@ global_var dsound_create* DirectSoundCreate_ = DirectSoundCreateStub;
 global_var LPDIRECTSOUNDBUFFER soundBuf;
 
 internal void
-win32InitDSound(HWND hwnd, int bufSize, int samplesPerSec)
+win32InitDSound(HWND hwnd, int32_t samplesPerSec, int32_t bufSize)
 {
 	HMODULE dsoundLib = LoadLibrary("dsound.dll");
 	if (dsoundLib)
@@ -139,7 +139,6 @@ win32InitDSound(HWND hwnd, int bufSize, int samplesPerSec)
 				}
 				bufDesc = {};
 				bufDesc.dwSize = sizeof(bufDesc);
-				bufDesc.dwFlags = 0;
 				bufDesc.dwBufferBytes = bufSize;
 				bufDesc.lpwfxFormat = &format;
 				if (SUCCEEDED(dsound->CreateSoundBuffer(&bufDesc, &soundBuf, 0)))
@@ -314,20 +313,26 @@ WinMain(HINSTANCE hInstance,
             0);
 
         if (wnd) {
-
 			HDC hdc = GetDC(wnd);
-
-			win32InitDSound(wnd, 48000, 48000 * sizeof(int16_t) * 2);
-
             MSG msg;
 			int xOffset = 0;
 			int yOffset = 0;
+			int samplePerSec = 48000;
+			int bytesPerSample = sizeof(int16_t) * 2;
+			int soundBufSize = samplePerSec * bytesPerSample;
+			int hertz = 256;
+			int volume = 1200;
+			uint32_t runningSampleIdx = 0;
+			int squareWaveCounter = 0;
+			int squareWavePeriod = samplePerSec/hertz;
+			int halfSquareWavePeriod = squareWavePeriod/2;
+			bool soundIsPlaying = false;
+			win32InitDSound(wnd, samplePerSec, soundBufSize);
             while (running) {
 				while (PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) {
 					if (msg.message == WM_QUIT) {
 						running = false;
 					}
-
                     TranslateMessage(&msg);
                     DispatchMessage(&msg);
 				}
@@ -351,7 +356,6 @@ WinMain(HINSTANCE hInstance,
 					bool padY = (pad->wButtons & XINPUT_GAMEPAD_Y);
 					int16_t stickX = pad->sThumbLX;
 					int16_t stickY = pad->sThumbLY;
-
 					if (padUp)
 					{
 						++yOffset;
@@ -373,6 +377,62 @@ WinMain(HINSTANCE hInstance,
 					// TODO handle controller disconnected
 				}
 				renderWeirdGradient(backbuffer, xOffset, yOffset);
+
+				DWORD playCursor;
+				DWORD writeCursor;
+				if (SUCCEEDED(soundBuf->GetCurrentPosition( &playCursor, &writeCursor )))
+				{
+//					OutputDebugString("got cursor position\n");
+					DWORD byteToLock = (runningSampleIdx * bytesPerSample) % soundBufSize;
+					DWORD bytesToWrite;
+					if (byteToLock == playCursor)
+					{
+						bytesToWrite = soundBufSize;
+					}
+					else if (byteToLock > playCursor)
+					{
+						bytesToWrite = soundBufSize - byteToLock + playCursor;
+					}
+					else
+					{
+						bytesToWrite = playCursor - byteToLock;
+					}
+					VOID* region1;
+					DWORD region1Size;
+					VOID* region2;
+					DWORD region2Size;
+					if (SUCCEEDED(soundBuf->Lock(
+						byteToLock, bytesToWrite,
+						&region1, &region1Size,
+						&region2, &region2Size,
+						0)))
+					{
+//						OutputDebugString("locked hauehaukehruaksehfuhasifh\n");
+						DWORD region1SampleCount = region1Size / bytesPerSample;
+						int16_t* sampleOut = (int16_t*)region1;
+						for (DWORD i = 0; i < region1SampleCount; ++i)
+						{
+							int16_t sampleValue = ((runningSampleIdx++ / halfSquareWavePeriod) % 2) ? volume : -volume;
+							*sampleOut++ = sampleValue;
+							*sampleOut++ = sampleValue;
+						}
+						DWORD region2SampleCount = region2Size / bytesPerSample;
+						sampleOut = (int16_t*)region2;
+						for (DWORD i = 0; i < region2SampleCount; ++i)
+						{
+							int16_t sampleValue = ((runningSampleIdx++ / halfSquareWavePeriod) % 2) ? volume : -volume;
+							*sampleOut++ = sampleValue;
+							*sampleOut++ = sampleValue;
+						}
+						soundBuf->Unlock(region1, region1Size, region2, region2Size);
+					}
+				}
+				if (!soundIsPlaying)
+				{
+					soundBuf->Play(0, 0, DSBPLAY_LOOPING);
+					soundIsPlaying = true;
+				}
+
 				win32_window_dimension d = win32GetWindowDimension(wnd);
 				win32DisplayBufferInWindow(&backbuffer, hdc, d.width, d.height);
             }
