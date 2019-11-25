@@ -2,14 +2,19 @@
 #include <stdint.h>
 #include <xinput.h>
 #include <dsound.h>
+#include <math.h>
+#include <cstdio>
 
 #define internal static
 #define local_persist static
 #define global_var    static
 
+#define PI 3.14159265359f
+
+#define DEBUG(...) {char cad[512]; sprintf(cad, __VA_ARGS__);  OutputDebugString(cad);}
+
 // TODO fix this global
 global_var bool running = true;
-
 
 struct win32_buffer {
 
@@ -84,6 +89,10 @@ win32LoadXInput(void)
 	HMODULE xinputLib = LoadLibrary("xinput1_4.dll");
 	if (!xinputLib)
 	{
+		xinputLib = LoadLibrary("xinput9_1_0.dll");
+	}
+	if (!xinputLib)
+	{
 		xinputLib = LoadLibrary("xinput1_3.dll");
 	}
 	if (xinputLib)
@@ -122,7 +131,6 @@ win32InitDSound(HWND hwnd, int32_t samplesPerSec, int32_t bufSize)
 			format.wBitsPerSample = 16;
 			format.nBlockAlign = (format.nChannels * format.wBitsPerSample) / 8;
 			format.nAvgBytesPerSec = samplesPerSec * format.nBlockAlign;
-			format.cbSize = 0;
 			if (SUCCEEDED(dsound->SetCooperativeLevel(hwnd, DSSCL_PRIORITY)))
 			{
 				LPDIRECTSOUNDBUFFER dsoundBuf;
@@ -280,6 +288,58 @@ MainWndCallback(HWND hwnd,
     return r;
 }
 
+struct win32_sound_output
+{
+	int samplePerSec;
+	int bytesPerSample;
+	int soundBufSize;
+	int hertz;
+	int volume;
+	uint32_t runningSampleIdx;
+	int wavePeriod;
+	float tSine;
+	uint32_t nLatencySamples;
+};
+
+internal void
+win32FillSoundBuffer(win32_sound_output *soundOutput, DWORD byteToLock, DWORD bytesToWrite)
+{
+	VOID* region1;
+	DWORD region1Size;
+	VOID* region2;
+	DWORD region2Size;
+	if (SUCCEEDED(soundBuf->Lock(
+		byteToLock, bytesToWrite,
+		&region1, &region1Size,
+		&region2, &region2Size,
+		0)))
+	{
+		DWORD region1SampleCount = region1Size / soundOutput->bytesPerSample;
+		int16_t* sampleOut = (int16_t*)region1;
+		for (DWORD i = 0; i < region1SampleCount; ++i)
+		{
+			float sineValue = sinf(soundOutput->tSine);
+			int16_t sampleValue = (int16_t)(sineValue * soundOutput->volume);
+			*sampleOut++ = sampleValue;
+			*sampleOut++ = sampleValue;
+			soundOutput->tSine += 2.0f * PI / (float)soundOutput->wavePeriod;
+			++soundOutput->runningSampleIdx;
+		}
+		DWORD region2SampleCount = region2Size / soundOutput->bytesPerSample;
+		sampleOut = (int16_t*)region2;
+		for (DWORD i = 0; i < region2SampleCount; ++i)
+		{
+			float sineValue = sinf(soundOutput->tSine);
+			int16_t sampleValue = (int16_t)(sineValue * soundOutput->volume);
+			*sampleOut++ = sampleValue;
+			*sampleOut++ = sampleValue;
+			soundOutput->tSine += 2.0f * PI / (float)soundOutput->wavePeriod;
+			++soundOutput->runningSampleIdx;
+		}
+		soundBuf->Unlock(region1, region1Size, region2, region2Size);
+	}
+}
+
 int CALLBACK
 WinMain(HINSTANCE hInstance,
         HINSTANCE hPrevInstance,
@@ -288,16 +348,13 @@ WinMain(HINSTANCE hInstance,
 {
 	win32LoadXInput();
 	win32ResizeDIBSection(&backbuffer, 1280, 720);
-
     WNDCLASS wc = {};
-
     wc.style = CS_OWNDC|CS_HREDRAW|CS_VREDRAW;
     wc.lpfnWndProc = MainWndCallback;
     wc.hInstance = hInstance;
     wc.lpszClassName = "HandmadeHeroWindowClass";
 
     if (RegisterClass(&wc)) {
-
         HWND wnd = CreateWindowEx(
             0,
             wc.lpszClassName,
@@ -317,17 +374,25 @@ WinMain(HINSTANCE hInstance,
             MSG msg;
 			int xOffset = 0;
 			int yOffset = 0;
-			int samplePerSec = 48000;
-			int bytesPerSample = sizeof(int16_t) * 2;
-			int soundBufSize = samplePerSec * bytesPerSample;
-			int hertz = 256;
-			int volume = 1200;
-			uint32_t runningSampleIdx = 0;
-			int squareWaveCounter = 0;
-			int squareWavePeriod = samplePerSec/hertz;
-			int halfSquareWavePeriod = squareWavePeriod/2;
-			bool soundIsPlaying = false;
-			win32InitDSound(wnd, samplePerSec, soundBufSize);
+
+			win32_sound_output soundOutput = {};
+			soundOutput.samplePerSec = 48000;
+			soundOutput.volume = 3000;
+			soundOutput.hertz = 256;
+			soundOutput.wavePeriod = soundOutput.samplePerSec / soundOutput.hertz;
+			soundOutput.bytesPerSample = sizeof(int16_t) * 2;
+			soundOutput.soundBufSize = soundOutput.samplePerSec * soundOutput.bytesPerSample;
+			/*
+				TODO(jairo): investigate why Casey was able to use a lower latency (dividing by 15).
+				In my computer if I try to divide by 15 the sound starts making clipping/skipping noises.
+				If try even lower latencies (dividing by 60), the hardware goes full circle and I get
+				back to the situation where there's a latency of 1 second between me touching the controller stick
+				and the change in the sound pitch taking place.
+			*/
+			soundOutput.nLatencySamples = soundOutput.samplePerSec / 10;
+			win32InitDSound(wnd, soundOutput.samplePerSec, soundOutput.soundBufSize);
+			win32FillSoundBuffer(&soundOutput, 0, soundOutput.nLatencySamples * soundOutput.bytesPerSample);
+			soundBuf->Play(0, 0, DSBPLAY_LOOPING);
             while (running) {
 				while (PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) {
 					if (msg.message == WM_QUIT) {
@@ -356,22 +421,10 @@ WinMain(HINSTANCE hInstance,
 					bool padY = (pad->wButtons & XINPUT_GAMEPAD_Y);
 					int16_t stickX = pad->sThumbLX;
 					int16_t stickY = pad->sThumbLY;
-					if (padUp)
-					{
-						++yOffset;
-					}
-					if (padDown)
-					{
-						--yOffset;
-					}
-					if (padLeft)
-					{
-						++xOffset;
-					}
-					if (padRight)
-					{
-						--xOffset;
-					}
+
+					soundOutput.hertz = 512 + (int)(256.0f * ((float)stickY / 30000.0f));
+					soundOutput.wavePeriod = soundOutput.samplePerSec / soundOutput.hertz;
+					if (padUp) { ++yOffset; } if (padDown) { --yOffset; } if (padLeft) { ++xOffset; } if (padRight) { --xOffset; }
 				}
 				else {
 					// TODO handle controller disconnected
@@ -380,57 +433,20 @@ WinMain(HINSTANCE hInstance,
 
 				DWORD playCursor;
 				DWORD writeCursor;
-				if (SUCCEEDED(soundBuf->GetCurrentPosition( &playCursor, &writeCursor )))
+				if (SUCCEEDED(soundBuf->GetCurrentPosition(&playCursor, &writeCursor)))
 				{
-//					OutputDebugString("got cursor position\n");
-					DWORD byteToLock = (runningSampleIdx * bytesPerSample) % soundBufSize;
+					DWORD byteToLock = (soundOutput.runningSampleIdx * soundOutput.bytesPerSample) % soundOutput.soundBufSize;
+					DWORD targetCursor = (playCursor + soundOutput.nLatencySamples * soundOutput.bytesPerSample)% soundOutput.soundBufSize;
 					DWORD bytesToWrite;
-					if (byteToLock == playCursor)
+					if (byteToLock > targetCursor)
 					{
-						bytesToWrite = soundBufSize;
-					}
-					else if (byteToLock > playCursor)
-					{
-						bytesToWrite = soundBufSize - byteToLock + playCursor;
+						bytesToWrite = soundOutput.soundBufSize - byteToLock + targetCursor;
 					}
 					else
 					{
-						bytesToWrite = playCursor - byteToLock;
+						bytesToWrite = targetCursor - byteToLock;
 					}
-					VOID* region1;
-					DWORD region1Size;
-					VOID* region2;
-					DWORD region2Size;
-					if (SUCCEEDED(soundBuf->Lock(
-						byteToLock, bytesToWrite,
-						&region1, &region1Size,
-						&region2, &region2Size,
-						0)))
-					{
-//						OutputDebugString("locked hauehaukehruaksehfuhasifh\n");
-						DWORD region1SampleCount = region1Size / bytesPerSample;
-						int16_t* sampleOut = (int16_t*)region1;
-						for (DWORD i = 0; i < region1SampleCount; ++i)
-						{
-							int16_t sampleValue = ((runningSampleIdx++ / halfSquareWavePeriod) % 2) ? volume : -volume;
-							*sampleOut++ = sampleValue;
-							*sampleOut++ = sampleValue;
-						}
-						DWORD region2SampleCount = region2Size / bytesPerSample;
-						sampleOut = (int16_t*)region2;
-						for (DWORD i = 0; i < region2SampleCount; ++i)
-						{
-							int16_t sampleValue = ((runningSampleIdx++ / halfSquareWavePeriod) % 2) ? volume : -volume;
-							*sampleOut++ = sampleValue;
-							*sampleOut++ = sampleValue;
-						}
-						soundBuf->Unlock(region1, region1Size, region2, region2Size);
-					}
-				}
-				if (!soundIsPlaying)
-				{
-					soundBuf->Play(0, 0, DSBPLAY_LOOPING);
-					soundIsPlaying = true;
+					win32FillSoundBuffer(&soundOutput, byteToLock, bytesToWrite);
 				}
 
 				win32_window_dimension d = win32GetWindowDimension(wnd);
@@ -442,6 +458,5 @@ WinMain(HINSTANCE hInstance,
     } else {
         //TODO()
     }
-
     return 0;
 }
