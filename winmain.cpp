@@ -346,6 +346,9 @@ WinMain(HINSTANCE hInstance,
         LPSTR     lpCmdLine,
         int       nShowCmd)
 {
+	LARGE_INTEGER perfFreq;
+	QueryPerformanceFrequency(&perfFreq);
+
 	win32LoadXInput();
 	win32ResizeDIBSection(&backbuffer, 1280, 720);
     WNDCLASS wc = {};
@@ -394,6 +397,9 @@ WinMain(HINSTANCE hInstance,
 			win32FillSoundBuffer(&soundOutput, 0, soundOutput.nLatencySamples * soundOutput.bytesPerSample);
 			soundBuf->Play(0, 0, DSBPLAY_LOOPING);
             while (running) {
+				LARGE_INTEGER perfCounter;
+				QueryPerformanceCounter(&perfCounter);
+				uint64_t cycleCount = __rdtsc();
 				while (PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) {
 					if (msg.message == WM_QUIT) {
 						running = false;
@@ -451,6 +457,14 @@ WinMain(HINSTANCE hInstance,
 
 				win32_window_dimension d = win32GetWindowDimension(wnd);
 				win32DisplayBufferInWindow(&backbuffer, hdc, d.width, d.height);
+
+				LARGE_INTEGER perfCounterEnd;
+				QueryPerformanceCounter(&perfCounterEnd);
+				uint64_t cycleCountEnd = __rdtsc();
+				int64_t msPerFrame = (1000 * (perfCounterEnd.QuadPart - perfCounter.QuadPart)) / perfFreq.QuadPart;
+				DEBUG("DBG perf count: %lld\n", (1000 * (perfCounterEnd.QuadPart - perfCounter.QuadPart)) / perfFreq.QuadPart);
+				DEBUG("DBG fps: %lld\n", 1000/msPerFrame);
+				DEBUG("DBG cpu cycles elapsed: %lld\n", cycleCountEnd - cycleCount);
             }
         } else {
             //TODO
