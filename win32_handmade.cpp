@@ -31,24 +31,6 @@ struct win32_buffer {
 global_var win32_buffer backbuffer;
 
 
-internal void
-renderWeirdGradient(win32_buffer buf, int xOffset, int yOffset)
-{
-    uint8_t *row = (uint8_t*)buf.memory;
-    for (int y = 0; y < buf.height; ++y) {
-        uint32_t* pixel = (uint32_t*)row;
-        for (int x = 0; x < buf.width; ++x) {
-            /*
-              pixel in memory:  00 00 00 00 (four hexadecimal values: B G R padding)
-            */
-            uint8_t b = (x + xOffset);
-            uint8_t g = (y + yOffset);
-            *pixel++ = ((g << 8) | b) ;
-        }
-        row += buf.pitch;
-    }
-}
-
 struct win32_window_dimension
 {
     int width;
@@ -438,9 +420,13 @@ WinMain(HINSTANCE hInstance,
                     // TODO handle controller disconnected
                 }
 
-                MainLoop();
+                game_offscreen_buffer buf = {};
+                buf.memory = backbuffer.memory;
+                buf.width  = backbuffer.width;
+                buf.height = backbuffer.height;
+                buf.pitch  = backbuffer.pitch;
 
-                renderWeirdGradient(backbuffer, xOffset, yOffset);
+                gameUpdateAndRender(&buf, xOffset, yOffset);
 
                 DWORD playCursor;
                 DWORD writeCursor;
