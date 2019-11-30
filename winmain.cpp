@@ -5,6 +5,8 @@
 #include <math.h>
 #include <cstdio>
 
+#include "handmade.cpp"
+
 #define internal static
 #define local_persist static
 #define global_var    static
@@ -435,6 +437,9 @@ WinMain(HINSTANCE hInstance,
                 else {
                     // TODO handle controller disconnected
                 }
+
+                MainLoop();
+
                 renderWeirdGradient(backbuffer, xOffset, yOffset);
 
                 DWORD playCursor;
