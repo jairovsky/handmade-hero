@@ -131,6 +131,7 @@ win32InitDSound(HWND hwnd, int32_t samplesPerSec, int32_t bufSize)
                             bufDesc.dwSize = sizeof(bufDesc);
                             bufDesc.dwBufferBytes = bufSize;
                             bufDesc.lpwfxFormat = &format;
+                            bufDesc.dwFlags = DSBCAPS_GLOBALFOCUS;
                             if (SUCCEEDED(dsound->CreateSoundBuffer(&bufDesc, &soundBuf, 0)))
                                 {
                                     OutputDebugString("secondary dsound buffer created successfully");
