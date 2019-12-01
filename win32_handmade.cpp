@@ -1,14 +1,13 @@
-#include <windows.h>
 #include <stdint.h>
-#include <xinput.h>
-#include <dsound.h>
 #include <math.h>
 #include <cstdio>
-
 #include "handmade.cpp"
 
-#define internal static
-#define local_persist static
+#include <windows.h>
+#include <xinput.h>
+#include <dsound.h>
+
+#define internal      static
 #define global_var    static
 
 #define PI 3.14159265359f
@@ -19,13 +18,12 @@
 global_var bool running = true;
 
 struct win32_buffer {
-
     BITMAPINFO info;
-    void* memory;
-    int width;
-    int height;
-    int pitch;
-    int bytesPerPixel = 4;
+    void*      memory;
+    int        width;
+    int        height;
+    int        pitch;
+    int        bytesPerPixel = 4;
 };
 
 global_var win32_buffer backbuffer;
