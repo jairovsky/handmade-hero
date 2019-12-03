@@ -10,8 +10,6 @@
 #define internal      static
 #define global_var    static
 
-#define PI 3.14159265359f
-
 #define DEBUG(...) {char cad[512]; sprintf(cad, __VA_ARGS__);  OutputDebugString(cad);}
 
 // TODO fix this global
@@ -385,6 +383,7 @@ WinMain(HINSTANCE hInstance,
                 uint64_t cycleCount = __rdtsc();
                 while (PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) {
                     if (msg.message == WM_QUIT) {
+                        OutputDebugString("quitting");
                         running = false;
                     }
                     TranslateMessage(&msg);
@@ -425,7 +424,13 @@ WinMain(HINSTANCE hInstance,
                 buf.height = backbuffer.height;
                 buf.pitch  = backbuffer.pitch;
 
-                gameUpdateAndRender(&buf, xOffset, yOffset);
+                game_sound_buffer sBuf = {};
+                int16_t samples[(48000/30) * 2];
+                sBuf.samplesPerSec = soundOutput.samplePerSec;
+                sBuf.sampleCount = sBuf.samplesPerSec / 30;
+                sBuf.samples = samples;
+
+                gameUpdateAndRender(&buf, xOffset, yOffset, &sBuf);
 
                 DWORD playCursor;
                 DWORD writeCursor;
