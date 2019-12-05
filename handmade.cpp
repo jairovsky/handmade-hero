@@ -4,7 +4,7 @@
 static void
 gameOutputSound(game_sound_buffer *buf)
 {
-    static int16_t tSine;
+    static float tSine;
     int16_t toneVolume = 3000;
     int toneHz = 256;
     int wavePeriod = buf->samplesPerSec / toneHz;
