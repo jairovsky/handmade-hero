@@ -145,22 +145,18 @@ win32ResizeDIBSection(win32_buffer *buf, int width, int height)
     if (buf->memory) {
         VirtualFree(buf->memory, 0, MEM_RELEASE);
     }
-
     buf->width = width;
     buf->height = height;
-
     buf->info.bmiHeader.biSize = sizeof(buf->info.bmiHeader);
     buf->info.bmiHeader.biWidth = buf->width;
     buf->info.bmiHeader.biHeight = -buf->height;
     buf->info.bmiHeader.biPlanes = 1;
     buf->info.bmiHeader.biBitCount = 32;
     buf->info.bmiHeader.biCompression = BI_RGB;
-
     //after clarification about stretchDIBits and BitBlt, we know
     // we can allocate the memory ourselves
     int bitmapMemorySize = buf->bytesPerPixel * buf->width * buf->height;
     buf->memory = VirtualAlloc(0, bitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
-
     buf->pitch = buf->width * buf->bytesPerPixel;
     // TODO maybe clear to black
 }
