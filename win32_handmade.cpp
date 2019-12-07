@@ -481,6 +481,7 @@ WinMain(HINSTANCE hInstance,
                 sBuf.samplesPerSec = soundOutput.samplePerSec;
                 sBuf.sampleCount = bytesToWrite / soundOutput.bytesPerSample;
                 sBuf.samples = samples;
+                sBuf.toneHz = soundOutput.hertz;
 
                 gameUpdateAndRender(&buf, xOffset, yOffset, &sBuf);
 

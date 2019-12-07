@@ -5,6 +5,7 @@
 struct game_sound_buffer {
     int      samplesPerSec;
     int      sampleCount;
+    int      toneHz;
     int16_t *samples;
 };
 
