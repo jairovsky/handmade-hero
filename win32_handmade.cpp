@@ -399,7 +399,7 @@ WinMain(HINSTANCE hInstance,
               back to the situation where there's a latency of 1 second between me touching the controller stick
               and the change in the sound pitch taking place.
             */
-            soundOutput.nLatencySamples = soundOutput.samplePerSec / 10;
+            soundOutput.nLatencySamples = soundOutput.samplePerSec / 7;
             win32InitDSound(wnd, soundOutput.samplePerSec, soundOutput.soundBufSize);
             win32ClearSoundBuffer(&soundOutput);
             soundBuf->Play(0, 0, DSBPLAY_LOOPING);
@@ -495,6 +495,7 @@ WinMain(HINSTANCE hInstance,
                  apparently, copying the entire screen buffer slows the loop down and we end up being unable
                  to fill the sound buffer quickly enough. */
                 // TODO(jairo): improve this. maybe BitBlt?
+                // for now, increasing the latency (nLatencySamples) solves the problem
                 win32DisplayBufferInWindow(&backbuffer, hdc, d.width, d.height);
 
                 LARGE_INTEGER perfCounterEnd;
