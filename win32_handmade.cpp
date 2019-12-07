@@ -403,6 +403,7 @@ WinMain(HINSTANCE hInstance,
             win32InitDSound(wnd, soundOutput.samplePerSec, soundOutput.soundBufSize);
             win32ClearSoundBuffer(&soundOutput);
             soundBuf->Play(0, 0, DSBPLAY_LOOPING);
+            int16_t *soundSamples = (int16_t*)VirtualAlloc(0, soundOutput.soundBufSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
             while (running) {
                 LARGE_INTEGER perfCounter;
                 QueryPerformanceCounter(&perfCounter);
@@ -477,10 +478,9 @@ WinMain(HINSTANCE hInstance,
                         soundIsValid = false;
                     }
                 game_sound_buffer sBuf = {};
-                int16_t samples[48000 * 2];
                 sBuf.samplesPerSec = soundOutput.samplePerSec;
                 sBuf.sampleCount = bytesToWrite / soundOutput.bytesPerSample;
-                sBuf.samples = samples;
+                sBuf.samples = soundSamples;
                 sBuf.toneHz = soundOutput.hertz;
 
                 gameUpdateAndRender(&buf, xOffset, yOffset, &sBuf);
@@ -491,6 +491,10 @@ WinMain(HINSTANCE hInstance,
                     }
 
                 win32_window_dimension d = win32GetWindowDimension(wnd);
+                /* NOTE(jairo): finally found out that the clipping noise bug is actually caused by this call (but only the window is being shown).
+                 apparently, copying the entire screen buffer slows the loop down and we end up being unable
+                 to fill the sound buffer quickly enough. */
+                // TODO(jairo): improve this. maybe BitBlt?
                 win32DisplayBufferInWindow(&backbuffer, hdc, d.width, d.height);
 
                 LARGE_INTEGER perfCounterEnd;
