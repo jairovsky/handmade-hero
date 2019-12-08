@@ -292,6 +292,19 @@ win32ProcessXInputBtn(WORD btnStateBits,
     newState->nHalfTransitions = (oldState->endedDown != newState->endedDown);
 }
 
+internal void
+win32NormalizeXInputThumbstick(SHORT val, float *normalizedVal)
+{
+    if (val < 0)
+        {
+            *normalizedVal = (float)val / (SHRT_MIN * -1.0f);
+        }
+    else
+        {
+            *normalizedVal = (float)val / SHRT_MAX;
+        }
+}
+
 int CALLBACK
 WinMain(HINSTANCE hInstance,
         HINSTANCE hPrevInstance,
@@ -380,23 +393,9 @@ WinMain(HINSTANCE hInstance,
                             bool padX = (pad->wButtons & XINPUT_GAMEPAD_X);
                             bool padY = (pad->wButtons & XINPUT_GAMEPAD_Y);
                             float X;
-                            if (pad->sThumbLX < 0)
-                                {
-                                    X = pad->sThumbLX / SHRT_MAX;
-                                }
-                            else
-                                {
-                                    X = pad->sThumbLX / SHRT_MAX;
-                                }
                             float Y;
-                            if (pad->sThumbLY < 0)
-                                {
-                                    Y = (float)pad->sThumbLY / SHRT_MAX;
-                                }
-                            else
-                                {
-                                    Y = (float)pad->sThumbLY / SHRT_MAX;
-                                }
+                            win32NormalizeXInputThumbstick(pad->sThumbLX, &X);
+                            win32NormalizeXInputThumbstick(pad->sThumbLY, &Y);
                             newController->isAnalog = true;
                             newController->startX = oldController->endX;
                             newController->startY = oldController->endY;
