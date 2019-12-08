@@ -289,7 +289,7 @@ win32ProcessXInputBtn(WORD btnStateBits,
                       game_button_state *newState)
 {
     newState->endedDown = (btnStateBits & btnBit) == btnBit;
-    newState->nHalfTransitions = (oldState->endedDown != newState->endedDown);
+    newState->nHalfTransitions = (oldState->endedDown != newState->endedDown) ? 1 : 0;
 }
 
 internal void
