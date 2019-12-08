@@ -7,31 +7,17 @@
 #include <xinput.h>
 #include <dsound.h>
 
-#define internal      static
-#define global_var    static
-
-#define DEBUG(...) {char cad[512]; sprintf(cad, __VA_ARGS__);  OutputDebugString(cad);}
+#include "win32_handmade.h"
 
 // TODO fix this global
 global_var bool running = true;
-
-struct win32_buffer {
-    BITMAPINFO info;
-    void*      memory;
-    int        width;
-    int        height;
-    int        pitch;
-    int        bytesPerPixel = 4;
-};
-
 global_var win32_buffer backbuffer;
+global_var LPDIRECTSOUNDBUFFER soundBuf;
 
 
-struct win32_window_dimension
-{
-    int width;
-    int height;
-};
+#define KeyWasDown(param) ((param & (1 << 30))) != 0
+#define KeyIsDown(param) ((param & (1 << 31))) == 0
+#define AltIsDown(param) ((param & (1 << 29))) != 0
 
 win32_window_dimension
 win32GetWindowDimension(HWND hwnd)
@@ -43,25 +29,6 @@ win32GetWindowDimension(HWND hwnd)
     dim.height = rect.bottom - rect.top;
     return dim;
 }
-
-#define X_INPUT_GET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_STATE *pState)
-typedef X_INPUT_GET_STATE(xinput_get_state);
-X_INPUT_GET_STATE(XInputGetStateStub)
-{
-    return ERROR_DEVICE_NOT_CONNECTED;
-}
-global_var xinput_get_state *XInputGetState_ = XInputGetStateStub;
-#define XInputGetState XInputGetState_
-
-#define X_INPUT_SET_STATE(name) DWORD WINAPI name(DWORD dwUserIndex, XINPUT_VIBRATION *pVibration)
-typedef X_INPUT_SET_STATE(xinput_set_state);
-X_INPUT_SET_STATE(XInputSetStateStub)
-{
-    return ERROR_DEVICE_NOT_CONNECTED;
-}
-global_var xinput_set_state *XInputSetState_ = XInputSetStateStub;
-#define XInputSetState XInputSetState_
-
 
 internal void
 win32LoadXInput(void)
@@ -81,18 +48,6 @@ win32LoadXInput(void)
             XInputSetState = (xinput_set_state *)GetProcAddress(xinputLib, "XInputSetState");
         }
 }
-
-
-#define DIRECTSOUND_CREATE(name) HRESULT WINAPI name(LPCGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter)
-typedef DIRECTSOUND_CREATE(dsound_create);
-DIRECTSOUND_CREATE(DirectSoundCreateStub)
-{
-    return DSERR_NODRIVER;
-}
-global_var dsound_create* DirectSoundCreate_ = DirectSoundCreateStub;
-#define DirectSoundCreate DirectSoundCreate_
-
-global_var LPDIRECTSOUNDBUFFER soundBuf;
 
 internal void
 win32InitDSound(HWND hwnd, int32_t samplesPerSec, int32_t bufSize)
@@ -174,10 +129,6 @@ win32DisplayBufferInWindow(win32_buffer *buf, HDC hdc, int wWidth, int wHeight)
                   SRCCOPY
                   );
 }
-
-#define KeyWasDown(param) ((param & (1 << 30))) != 0
-#define KeyIsDown(param) ((param & (1 << 31))) == 0
-#define AltIsDown(param) ((param & (1 << 29))) != 0
 
 LRESULT CALLBACK
 MainWndCallback(HWND hwnd,
@@ -264,19 +215,6 @@ MainWndCallback(HWND hwnd,
 
     return r;
 }
-
-struct win32_sound_output
-{
-    int samplePerSec;
-    int bytesPerSample;
-    int soundBufSize;
-    int hertz;
-    int volume;
-    uint32_t runningSampleIdx;
-    int wavePeriod;
-    float tSine;
-    uint32_t nLatencySamples;
-};
 
 internal void
 win32ClearSoundBuffer(win32_sound_output *soundOutput)
@@ -383,9 +321,6 @@ WinMain(HINSTANCE hInstance,
 
             win32_sound_output soundOutput = {};
             soundOutput.samplePerSec = 48000;
-            soundOutput.volume = 3000;
-            soundOutput.hertz = 256;
-            soundOutput.wavePeriod = soundOutput.samplePerSec / soundOutput.hertz;
             soundOutput.bytesPerSample = sizeof(int16_t) * 2;
             soundOutput.soundBufSize = soundOutput.samplePerSec * soundOutput.bytesPerSample;
             /*
@@ -430,12 +365,11 @@ WinMain(HINSTANCE hInstance,
                     bool padB = (pad->wButtons & XINPUT_GAMEPAD_B);
                     bool padX = (pad->wButtons & XINPUT_GAMEPAD_X);
                     bool padY = (pad->wButtons & XINPUT_GAMEPAD_Y);
-                    int16_t stickX = pad->sThumbLX;
-                    int16_t stickY = pad->sThumbLY;
 
-                    soundOutput.hertz = 512 + (int)(256.0f * ((float)stickY / 30000.0f));
-                    soundOutput.wavePeriod = soundOutput.samplePerSec / soundOutput.hertz;
-                    if (padUp) { ++yOffset; } if (padDown) { --yOffset; } if (padLeft) { ++xOffset; } if (padRight) { --xOffset; }
+                    if (padUp) { ++yOffset; }
+                    if (padDown) { --yOffset; }
+                    if (padLeft) { ++xOffset; }
+                    if (padRight) { --xOffset; }
                 }
                 else {
                     // TODO handle controller disconnected
@@ -477,9 +411,8 @@ WinMain(HINSTANCE hInstance,
                 sBuf.samplesPerSec = soundOutput.samplePerSec;
                 sBuf.sampleCount = bytesToWrite / soundOutput.bytesPerSample;
                 sBuf.samples = soundSamples;
-                sBuf.toneHz = soundOutput.hertz;
 
-                gameUpdateAndRender(&buf, xOffset, yOffset, &sBuf);
+                gameUpdateAndRender(&buf, &sBuf);
 
                 if (soundIsValid)
                     {

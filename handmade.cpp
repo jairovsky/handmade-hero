@@ -2,11 +2,10 @@
 
 
 static void
-gameOutputSound(game_sound_buffer *buf)
+gameOutputSound(game_sound_buffer *buf, int toneHz)
 {
-    static float tSine;
+    local_persist float tSine;
     int16_t toneVolume = 3000;
-    int toneHz = buf->toneHz;
     int wavePeriod = buf->samplesPerSec / toneHz;
     int16_t *sampleOut = buf->samples;
     for (int i = 0; i < buf->sampleCount; ++i) {
@@ -38,10 +37,13 @@ renderWeirdGradient(game_offscreen_buffer *buf, int blueOffset, int greenOffset)
 }
 
 static void
-gameUpdateAndRender(game_offscreen_buffer *videoBuf, int blueOffset, int greenOffset,
+gameUpdateAndRender(game_offscreen_buffer *videoBuf,
                     game_sound_buffer *soundBuf)
 {
-    gameOutputSound(soundBuf);
+    local_persist int blueOffset = 0;
+    local_persist int greenOffset = 0;
+    local_persist int toneHz = 256;
+    gameOutputSound(soundBuf, toneHz);
     renderWeirdGradient(videoBuf, blueOffset, greenOffset);
 }
 
