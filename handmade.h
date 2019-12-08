@@ -16,10 +16,5 @@ struct game_offscreen_buffer {
     int   pitch;
 };
 
-
-static void gameOutputSound(game_sound_buffer *buf);
-static void gameUpdateAndRender(game_offscreen_buffer *buf, int blueOffset, int greenOffset);
-
-
 #define HANDMADE_H
 #endif
