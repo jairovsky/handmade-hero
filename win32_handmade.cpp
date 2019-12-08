@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <math.h>
 #include <cstdio>
+#include <limits.h>
 #include "handmade.cpp"
 
 #include <windows.h>
@@ -281,6 +282,16 @@ win32FillSoundBuffer(
         }
 }
 
+internal void
+win32ProcessXInputBtn(WORD btnStateBits,
+                      WORD btnBit,
+                      game_button_state *oldState,
+                      game_button_state *newState)
+{
+    newState->endedDown = (btnStateBits & btnBit) == btnBit;
+    newState->nHalfTransitions = (oldState->endedDown != newState->endedDown);
+}
+
 int CALLBACK
 WinMain(HINSTANCE hInstance,
         HINSTANCE hPrevInstance,
@@ -316,9 +327,6 @@ WinMain(HINSTANCE hInstance,
         if (wnd) {
             HDC hdc = GetDC(wnd);
             MSG msg;
-            int xOffset = 0;
-            int yOffset = 0;
-
             win32_sound_output soundOutput = {};
             soundOutput.samplePerSec = 48000;
             soundOutput.bytesPerSample = sizeof(int16_t) * 2;
@@ -335,6 +343,9 @@ WinMain(HINSTANCE hInstance,
             win32ClearSoundBuffer(&soundOutput);
             soundBuf->Play(0, 0, DSBPLAY_LOOPING);
             int16_t *soundSamples = (int16_t*)VirtualAlloc(0, soundOutput.soundBufSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+            game_input input[2] = {};
+            game_input *newInput = &input[0];
+            game_input *oldInput = &input[1];
             while (running) {
                 LARGE_INTEGER perfCounter;
                 QueryPerformanceCounter(&perfCounter);
@@ -348,32 +359,66 @@ WinMain(HINSTANCE hInstance,
                     DispatchMessage(&msg);
                 }
 
-                XINPUT_STATE inputState;
-                DWORD controller = 0;
-                DWORD gotInput = XInputGetState(controller, &inputState);
-                if (gotInput == ERROR_SUCCESS) {
-                    XINPUT_GAMEPAD* pad = &inputState.Gamepad;
-                    bool padUp = (pad->wButtons & XINPUT_GAMEPAD_DPAD_UP);
-                    bool padDown = (pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN);
-                    bool padLeft = (pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT);
-                    bool padRight = (pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT);
-                    bool padStart = (pad->wButtons & XINPUT_GAMEPAD_START);
-                    bool padBack = (pad->wButtons & XINPUT_GAMEPAD_BACK);
-                    bool padLShoulder = (pad->wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER);
-                    bool padRShoulder = (pad->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER);
-                    bool padA = (pad->wButtons & XINPUT_GAMEPAD_A);
-                    bool padB = (pad->wButtons & XINPUT_GAMEPAD_B);
-                    bool padX = (pad->wButtons & XINPUT_GAMEPAD_X);
-                    bool padY = (pad->wButtons & XINPUT_GAMEPAD_Y);
-
-                    if (padUp) { ++yOffset; }
-                    if (padDown) { --yOffset; }
-                    if (padLeft) { ++xOffset; }
-                    if (padRight) { --xOffset; }
-                }
-                else {
-                    // TODO handle controller disconnected
-                }
+                for (WORD ctrlIdx = 0; ctrlIdx < XUSER_MAX_COUNT; ++ctrlIdx)
+                    {
+                        game_controller_input *oldController = &oldInput->controllers[ctrlIdx];
+                        game_controller_input *newController = &newInput->controllers[ctrlIdx];
+                        XINPUT_STATE inputState;
+                        DWORD gotInput = XInputGetState(ctrlIdx, &inputState);
+                        if (gotInput == ERROR_SUCCESS) {
+                            XINPUT_GAMEPAD* pad = &inputState.Gamepad;
+                            bool padUp = (pad->wButtons & XINPUT_GAMEPAD_DPAD_UP);
+                            bool padDown = (pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN);
+                            bool padLeft = (pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT);
+                            bool padRight = (pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT);
+                            bool padStart = (pad->wButtons & XINPUT_GAMEPAD_START);
+                            bool padBack = (pad->wButtons & XINPUT_GAMEPAD_BACK);
+                            bool padLShoulder = (pad->wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER);
+                            bool padRShoulder = (pad->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER);
+                            bool padA = (pad->wButtons & XINPUT_GAMEPAD_A);
+                            bool padB = (pad->wButtons & XINPUT_GAMEPAD_B);
+                            bool padX = (pad->wButtons & XINPUT_GAMEPAD_X);
+                            bool padY = (pad->wButtons & XINPUT_GAMEPAD_Y);
+                            float X;
+                            if (pad->sThumbLX < 0)
+                                {
+                                    X = pad->sThumbLX / SHRT_MAX;
+                                }
+                            else
+                                {
+                                    X = pad->sThumbLX / SHRT_MAX;
+                                }
+                            float Y;
+                            if (pad->sThumbLY < 0)
+                                {
+                                    Y = (float)pad->sThumbLY / SHRT_MAX;
+                                }
+                            else
+                                {
+                                    Y = (float)pad->sThumbLY / SHRT_MAX;
+                                }
+                            newController->isAnalog = true;
+                            newController->startX = oldController->endX;
+                            newController->startY = oldController->endY;
+                            newController->minX = newController->maxX = newController->endX = X;
+                            newController->minY = newController->maxY = newController->endY = Y;
+                            win32ProcessXInputBtn(pad->wButtons, XINPUT_GAMEPAD_A,
+                                                  &oldController->down, &newController->down);
+                            win32ProcessXInputBtn(pad->wButtons, XINPUT_GAMEPAD_B,
+                                                  &oldController->right, &newController->right);
+                            win32ProcessXInputBtn(pad->wButtons, XINPUT_GAMEPAD_X,
+                                                  &oldController->left, &newController->left);
+                            win32ProcessXInputBtn(pad->wButtons, XINPUT_GAMEPAD_Y,
+                                                  &oldController->up, &newController->up);
+                            win32ProcessXInputBtn(pad->wButtons, XINPUT_GAMEPAD_LEFT_SHOULDER,
+                                                  &oldController->leftBumper, &newController->leftBumper);
+                            win32ProcessXInputBtn(pad->wButtons, XINPUT_GAMEPAD_RIGHT_SHOULDER,
+                                                  &oldController->rightBumper, &newController->rightBumper);
+                        }
+                        else {
+                            // TODO handle controller disconnected
+                        }
+                    }
 
                 game_offscreen_buffer buf = {};
                 buf.memory = backbuffer.memory;
@@ -412,7 +457,7 @@ WinMain(HINSTANCE hInstance,
                 sBuf.sampleCount = bytesToWrite / soundOutput.bytesPerSample;
                 sBuf.samples = soundSamples;
 
-                gameUpdateAndRender(&buf, &sBuf);
+                gameUpdateAndRender(newInput, &buf, &sBuf);
 
                 if (soundIsValid)
                     {
@@ -434,6 +479,10 @@ WinMain(HINSTANCE hInstance,
                 DEBUG("DBG perf count: %lld\n", (1000 * (perfCounterEnd.QuadPart - perfCounter.QuadPart)) / perfFreq.QuadPart);
                 DEBUG("DBG fps: %lld\n", 1000/msPerFrame);
                 DEBUG("DBG cpu cycles elapsed: %lld\n", cycleCountEnd - cycleCount);
+
+                game_input *temp = newInput;
+                game_input *newInput = oldInput;
+                game_input *oldInput = temp;
             }
         } else {
             //TODO

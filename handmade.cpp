@@ -37,12 +37,40 @@ renderWeirdGradient(game_offscreen_buffer *buf, int blueOffset, int greenOffset)
 }
 
 static void
-gameUpdateAndRender(game_offscreen_buffer *videoBuf,
+gameUpdateAndRender(game_input *input,
+                    game_offscreen_buffer *videoBuf,
                     game_sound_buffer *soundBuf)
 {
     local_persist int blueOffset = 0;
     local_persist int greenOffset = 0;
     local_persist int toneHz = 256;
+
+    game_controller_input *input0 = &input->controllers[0];
+
+
+    if (input0->isAnalog)
+        {
+            toneHz = 256 + (int)(128.0f * input0->endY);
+            blueOffset += (int)(4.0f * input0->endX);
+        }
+
+    if (input0->down.endedDown)
+        {
+            greenOffset -= 1;
+        }
+    if (input0->up.endedDown)
+        {
+            greenOffset += 1;
+        }
+    if (input0->left.endedDown)
+        {
+            blueOffset += 1;
+        }
+    if (input0->right.endedDown)
+        {
+            blueOffset -= 1;
+        }
+
     gameOutputSound(soundBuf, toneHz);
     renderWeirdGradient(videoBuf, blueOffset, greenOffset);
 }
