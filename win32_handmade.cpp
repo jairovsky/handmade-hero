@@ -356,6 +356,11 @@ WinMain(HINSTANCE hInstance,
             win32ClearSoundBuffer(&soundOutput);
             soundBuf->Play(0, 0, DSBPLAY_LOOPING);
             int16_t *soundSamples = (int16_t*)VirtualAlloc(0, soundOutput.soundBufSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+            game_memory gameMemory = {};
+            gameMemory.permStorageSize = 64 * MEGABYTE;
+            gameMemory.permStorage = VirtualAlloc(0, gameMemory.permStorageSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+            gameMemory.transientStorageSize = 4 * GIGABYTE;
+            gameMemory.transientStorage = VirtualAlloc(0, gameMemory.transientStorageSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
             game_input input[2] = {};
             game_input *newInput = &input[0];
             game_input *oldInput = &input[1];
@@ -456,7 +461,7 @@ WinMain(HINSTANCE hInstance,
                 sBuf.sampleCount = bytesToWrite / soundOutput.bytesPerSample;
                 sBuf.samples = soundSamples;
 
-                gameUpdateAndRender(newInput, &buf, &sBuf);
+                gameUpdateAndRender(&gameMemory, newInput, &buf, &sBuf);
 
                 if (soundIsValid)
                     {

@@ -1,11 +1,16 @@
 #ifndef HANDMADE_H
 
+#define assert(expr) if (!(expr)) {*(int *) 0 = 0;}
 
 #define internal      static
 #define global_var    static
 #define local_persist static
 
 #define PI 3.14159265359f
+
+#define KILOBYTE (uint64_t)1024
+#define MEGABYTE (uint64_t)1024 * KILOBYTE
+#define GIGABYTE (uint64_t)1024 * MEGABYTE
 
 struct game_sound_buffer
 {
@@ -59,7 +64,21 @@ struct game_input
     game_controller_input controllers[4];
 };
 
+struct game_state
+{
+    int greenOffset;
+    int blueOffset;
+    int toneHz;
+};
 
+struct game_memory
+{
+    bool isInitialized;
+    uint64_t permStorageSize;
+    void* permStorage;
+    uint64_t transientStorageSize;
+    void* transientStorage;
+};
 
 #define HANDMADE_H
 #endif
