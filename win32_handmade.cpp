@@ -356,11 +356,17 @@ WinMain(HINSTANCE hInstance,
             win32ClearSoundBuffer(&soundOutput);
             soundBuf->Play(0, 0, DSBPLAY_LOOPING);
             int16_t *soundSamples = (int16_t*)VirtualAlloc(0, soundOutput.soundBufSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+            #if HANDMADE_INTERNAL
+            LPVOID baseAddress = (LPVOID)(2 * TERABYTE);
+            #else
+            LPVOID baseAddress = 0;
+            #endif
             game_memory gameMemory = {};
             gameMemory.permStorageSize = 64 * MEGABYTE;
-            gameMemory.permStorage = VirtualAlloc(0, gameMemory.permStorageSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
             gameMemory.transientStorageSize = 4 * GIGABYTE;
-            gameMemory.transientStorage = VirtualAlloc(0, gameMemory.transientStorageSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+            uint64_t totalStorageSize = gameMemory.permStorageSize + gameMemory.transientStorageSize;
+            gameMemory.permStorage = VirtualAlloc(baseAddress, totalStorageSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+            gameMemory.transientStorage = ((uint8_t *)gameMemory.permStorage + gameMemory.permStorageSize);
             game_input input[2] = {};
             game_input *newInput = &input[0];
             game_input *oldInput = &input[1];

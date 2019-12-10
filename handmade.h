@@ -1,6 +1,10 @@
 #ifndef HANDMADE_H
 
+#ifndef HANDMADE_SLOW_BUILD
 #define assert(expr) if (!(expr)) {*(int *) 0 = 0;}
+#else
+#define assert(expr)
+#endif
 
 #define internal      static
 #define global_var    static
@@ -11,6 +15,7 @@
 #define KILOBYTE (uint64_t)1024
 #define MEGABYTE (uint64_t)1024 * KILOBYTE
 #define GIGABYTE (uint64_t)1024 * MEGABYTE
+#define TERABYTE (uint64_t)1024 * GIGABYTE
 
 struct game_sound_buffer
 {
