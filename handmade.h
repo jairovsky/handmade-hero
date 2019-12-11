@@ -17,6 +17,14 @@
 #define GIGABYTE (uint64_t)1024 * MEGABYTE
 #define TERABYTE (uint64_t)1024 * GIGABYTE
 
+
+#if HANDMADE_INTERNAL
+internal void *DEBUGplatformReadFile(char *filename);
+internal void *DEBUGplatformFreeFile(char *filename);
+internal bool DEBUGplatformWriteFile(char *filename, uint32_t size, void* content);
+#endif
+
+
 struct game_sound_buffer
 {
     int      samplesPerSec;

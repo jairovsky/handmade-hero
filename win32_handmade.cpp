@@ -7,6 +7,8 @@
 #include <windows.h>
 #include <xinput.h>
 #include <dsound.h>
+#include <fileapi.h>
+#include <errhandlingapi.h>
 
 #include "win32_handmade.h"
 
@@ -305,12 +307,55 @@ win32NormalizeXInputThumbstick(SHORT val, float *normalizedVal)
         }
 }
 
+internal void *DEBUGplatformReadFile(char *filename)
+{
+    HANDLE hFile = CreateFile(filename,
+                GENERIC_READ,
+                0,
+                0,
+                OPEN_EXISTING,
+                FILE_ATTRIBUTE_NORMAL,
+                0);
+
+    DWORD fileSize;
+    DWORD fileSizeHigh;
+    fileSize = GetFileSize(hFile, &fileSizeHigh);
+    uint8_t *mybuf = (uint8_t*)VirtualAlloc(0, fileSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+    DWORD nRead;
+
+    if (hFile != INVALID_HANDLE_VALUE)
+        {
+            DEBUG("gonna read %d bytes...\n", fileSize);
+            if (ReadFile(hFile, (LPVOID)mybuf, fileSize, &nRead, 0))
+                {
+                    DEBUG("hey we actually managed to read the file\n");
+                }
+        }
+    else{
+        DWORD err = GetLastError();
+        DEBUG("error while opening file: error code %d\n", err);
+    }
+    return (void *) hFile;
+}
+// internal void *DEBUGplatformFreeFile(char *filename);
+// internal bool DEBUGplatformWriteFile(char *filename, uint32_t size, void* content);
+
 int CALLBACK
 WinMain(HINSTANCE hInstance,
         HINSTANCE hPrevInstance,
         LPSTR     lpCmdLine,
         int       nShowCmd)
 {
+
+
+
+    DEBUGplatformReadFile("..\\mario.bmp");
+
+
+    return 0;
+
+
+
     LARGE_INTEGER perfFreq;
     QueryPerformanceFrequency(&perfFreq);
 
