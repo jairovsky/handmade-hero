@@ -308,20 +308,6 @@ win32NormalizeXInputThumbstick(SHORT val, float *normalizedVal)
 }
 
 
-struct win32_file_size
-{
-    union
-    {
-        DWORD64 quadPart;
-        struct
-        {
-            DWORD lowPart;
-            DWORD highPart;
-        };
-    };
-};
-
-
 internal void
 *DEBUGplatformReadFile(char *filename)
 {
@@ -333,15 +319,15 @@ internal void
                 FILE_ATTRIBUTE_NORMAL,
                 0);
 
-    win32_file_size fileSize = {};
-    fileSize.lowPart = GetFileSize(hFile, &fileSize.highPart);
-    uint8_t *mybuf = (uint8_t*)VirtualAlloc(0, fileSize.quadPart, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+    LARGE_INTEGER fileSize = {};
+    GetFileSizeEx(hFile, &fileSize);
+    uint8_t *mybuf = (uint8_t*)VirtualAlloc(0, fileSize.QuadPart, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
     DWORD nRead;
 
     if (hFile != INVALID_HANDLE_VALUE)
         {
-            DEBUG("gonna read %lld bytes...\n", fileSize.quadPart);
-            if (ReadFile(hFile, (LPVOID)mybuf, fileSize.quadPart, &nRead, 0))
+            DEBUG("gonna read %lld bytes...\n", fileSize.QuadPart);
+            if (ReadFile(hFile, (LPVOID)mybuf, fileSize.QuadPart, &nRead, 0))
                 {
                     DEBUG("hey we actually managed to read the file\n");
                 }
