@@ -311,35 +311,34 @@ win32NormalizeXInputThumbstick(SHORT val, float *normalizedVal)
 internal void
 *DEBUGplatformReadFile(char *filename)
 {
-    HANDLE hFile = CreateFile(filename,
-                GENERIC_READ,
-                0,
-                0,
-                OPEN_EXISTING,
-                FILE_ATTRIBUTE_NORMAL,
-                0);
-
-    LARGE_INTEGER fileSize = {};
-    GetFileSizeEx(hFile, &fileSize);
-    uint8_t *mybuf = (uint8_t*)VirtualAlloc(0, fileSize.QuadPart, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
-    DWORD nRead;
-
-    if (hFile != INVALID_HANDLE_VALUE)
-        {
-            DEBUG("gonna read %lld bytes...\n", fileSize.QuadPart);
-            if (ReadFile(hFile, (LPVOID)mybuf, fileSize.QuadPart, &nRead, 0))
-                {
-                    DEBUG("hey we actually managed to read the file\n");
-                }
+    LPVOID fileBuf = 0;
+    HANDLE hFile = CreateFile(filename, GENERIC_READ, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+    if (hFile != INVALID_HANDLE_VALUE) {
+        LARGE_INTEGER fileSize;
+        if (GetFileSizeEx(hFile, &fileSize)) {
+            fileBuf = VirtualAlloc(0, fileSize.QuadPart, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+            DWORD nRead;
+            if (ReadFile(hFile, fileBuf, fileSize.QuadPart, &nRead, 0)) {
+                DEBUG("hey we actually managed to read the file\n");
+                DEBUG("bytes read: %d\n", nRead);
+            }
+            else {
+                DEBUGplatformFreeFile(fileBuf);
+                fileBuf = 0;
+            }
         }
-    else{
+        CloseHandle(hFile);
+    } else {
         DWORD err = GetLastError();
         DEBUG("error while opening file: error code %d\n", err);
     }
-    return (void *) hFile;
+    return (void *) fileBuf;
 }
-// internal void *DEBUGplatformFreeFile(char *filename);
-// internal bool DEBUGplatformWriteFile(char *filename, uint32_t size, void* content);
+internal void DEBUGplatformFreeFile(void *file)
+{
+    VirtualFree(file, 0, MEM_RELEASE);
+}
+// internal bool DEBUGplatformWriteFile(void *file, uint32_t size, void* content);
 
 int CALLBACK
 WinMain(HINSTANCE hInstance,
@@ -350,8 +349,9 @@ WinMain(HINSTANCE hInstance,
 
 
 
-    DEBUGplatformReadFile("..\\mario.bmp");
+    void* myBitmap = DEBUGplatformReadFile("..\\mario.bmp");
 
+    DEBUGplatformFreeFile(myBitmap);
 
     return 0;
 

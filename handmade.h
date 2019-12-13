@@ -20,8 +20,8 @@
 
 #if HANDMADE_INTERNAL
 internal void *DEBUGplatformReadFile(char *filename);
-internal void *DEBUGplatformFreeFile(char *filename);
-internal bool DEBUGplatformWriteFile(char *filename, uint32_t size, void* content);
+internal void DEBUGplatformFreeFile(void *file);
+internal bool DEBUGplatformWriteFile(void *file, uint32_t size, void* content);
 #endif
 
 
