@@ -416,27 +416,39 @@ WinMain(HINSTANCE hInstance,
                             switch (kCode) {
                             case 'W':
                                 win32ProcessKeyboardInput(&keyboardController->up, isDown);
+                                break;
                             case 'S':
                                 win32ProcessKeyboardInput(&keyboardController->down, isDown);
+                                break;
                             case 'D':
                                 win32ProcessKeyboardInput(&keyboardController->right, isDown);
+                                break;
                             case 'A':
                                 win32ProcessKeyboardInput(&keyboardController->left, isDown);
+                                break;
                             case 'Q':
                                 win32ProcessKeyboardInput(&keyboardController->leftBumper, isDown);
+                                break;
                             case 'E':
                                 win32ProcessKeyboardInput(&keyboardController->rightBumper, isDown);
                                 break;
                             case VK_UP:
+                                win32ProcessKeyboardInput(&keyboardController->up, isDown);
+                                break;
                             case VK_LEFT:
+                                win32ProcessKeyboardInput(&keyboardController->left, isDown);
+                                break;
                             case VK_RIGHT:
+                                win32ProcessKeyboardInput(&keyboardController->right, isDown);
+                                break;
                             case VK_DOWN:
+                                win32ProcessKeyboardInput(&keyboardController->down, isDown);
+                                break;
                             case VK_ESCAPE:
                                 running = false;
                                 break;
                             case VK_SPACE:
                                 break;
-
                             case VK_F4:
                                 if (AltIsDown(msg.lParam)) {
                                         running = false;
