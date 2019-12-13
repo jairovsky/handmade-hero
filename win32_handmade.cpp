@@ -263,22 +263,21 @@ win32ProcessXInputBtn(WORD btnStateBits,
 
 void win32ProcessKeyboardInput(game_button_state *newState, bool isDown)
 {
+    assert(newState->endedDown != isDown);
     newState->endedDown = isDown;
     newState->nHalfTransitions++;
     DEBUG("DBG processed keyboard\n");
 }
 
 internal void
-win32NormalizeXInputThumbstick(SHORT val, float *normalizedVal)
+win32NormalizeXInputThumbstick(SHORT val, SHORT deadzone, float *normalizedVal)
 {
-    if (val < 0)
-        {
-            *normalizedVal = (float)val / (SHRT_MIN * -1.0f);
-        }
-    else
-        {
-            *normalizedVal = (float)val / SHRT_MAX;
-        }
+    if (val < -deadzone) {
+        *normalizedVal = (float)val / (SHRT_MIN * -1.0f);
+    }
+    else if (val > deadzone) {
+        *normalizedVal = (float)val / SHRT_MAX;
+    }
 }
 
 internal void win32ProcessPendingMessages(game_controller_input *keyboardController)
@@ -460,19 +459,24 @@ WinMain(HINSTANCE hInstance,
             game_input *newInput = &input[0];
             game_input *oldInput = &input[1];
             while (running) {
-                game_controller_input *keyboardController = &newInput->controllers[0];
+                game_controller_input *oldKeyboardController = &oldInput->controllers[0];
+                game_controller_input *newKeyboardController = &newInput->controllers[0];
                 game_controller_input zeroedInput = {};
-                *keyboardController = zeroedInput;
+                *newKeyboardController = zeroedInput;
+                for (uint8_t btnIdx = 0; btnIdx < arrayCount(newInput->controllers); btnIdx++) {
+                    newKeyboardController->buttons[btnIdx].endedDown = oldKeyboardController->buttons[btnIdx].endedDown = 0;
+                }
                 LARGE_INTEGER perfCounter;
                 QueryPerformanceCounter(&perfCounter);
                 uint64_t cycleCount = __rdtsc();
 
-                win32ProcessPendingMessages(keyboardController);
+                win32ProcessPendingMessages(newKeyboardController);
 
                 for (WORD ctrlIdx = 0; ctrlIdx < XUSER_MAX_COUNT; ++ctrlIdx)
                     {
-                        game_controller_input *oldController = &oldInput->controllers[ctrlIdx];
-                        game_controller_input *newController = &newInput->controllers[ctrlIdx];
+                        WORD internalCtrlIdx = ctrlIdx + 1;
+                        game_controller_input *oldController = &oldInput->controllers[internalCtrlIdx];
+                        game_controller_input *newController = &newInput->controllers[internalCtrlIdx];
                         XINPUT_STATE inputState;
                         DWORD gotInput = XInputGetState(ctrlIdx, &inputState);
                         if (gotInput == ERROR_SUCCESS) {
@@ -489,10 +493,10 @@ WinMain(HINSTANCE hInstance,
                             bool padB = (pad->wButtons & XINPUT_GAMEPAD_B);
                             bool padX = (pad->wButtons & XINPUT_GAMEPAD_X);
                             bool padY = (pad->wButtons & XINPUT_GAMEPAD_Y);
-                            float X;
-                            float Y;
-                            win32NormalizeXInputThumbstick(pad->sThumbLX, &X);
-                            win32NormalizeXInputThumbstick(pad->sThumbLY, &Y);
+                            float X = 0;
+                            float Y = 0;
+                            win32NormalizeXInputThumbstick(pad->sThumbLX, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE, &X);
+                            win32NormalizeXInputThumbstick(pad->sThumbLY, XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE, &Y);
                             newController->isAnalog = true;
                             newController->startX = oldController->endX;
                             newController->startY = oldController->endY;

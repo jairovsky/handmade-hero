@@ -17,6 +17,7 @@
 #define GIGABYTE (uint64_t)1024 * MEGABYTE
 #define TERABYTE (uint64_t)1024 * GIGABYTE
 
+#define arrayCount(a) sizeof(a)/sizeof(a[0])
 
 #if HANDMADE_INTERNAL
 struct debug_read_file_result
@@ -79,7 +80,7 @@ struct game_controller_input
 
 struct game_input
 {
-    game_controller_input controllers[4];
+    game_controller_input controllers[5];
 };
 
 struct game_state
