@@ -538,11 +538,6 @@ WinMain(HINSTANCE hInstance,
                 }
 
                 win32_window_dimension d = win32GetWindowDimension(wnd);
-                /* NOTE(jairo): finally found out that the clipping noise bug is actually caused by this call (but only the window is being shown).
-                 apparently, copying the entire screen buffer slows the loop down and we end up being unable
-                 to fill the sound buffer quickly enough. */
-                // TODO(jairo): improve this. maybe BitBlt?
-                // for now, increasing the latency (nLatencySamples) solves the problem
                 win32DisplayBufferInWindow(&backbuffer, hdc, d.width, d.height);
 
                 LARGE_INTEGER perfCounterEnd;
