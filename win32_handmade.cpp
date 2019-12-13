@@ -99,7 +99,6 @@ win32InitDSound(HWND hwnd, int32_t samplesPerSec, int32_t bufSize)
 
 internal void
 win32ResizeDIBSection(win32_buffer *buf, int width, int height)
-
 {
     if (buf->memory) {
         VirtualFree(buf->memory, 0, MEM_RELEASE);
@@ -308,24 +307,27 @@ win32NormalizeXInputThumbstick(SHORT val, float *normalizedVal)
         }
 }
 
-internal void *
+internal debug_read_file_result
 DEBUGplatformReadFile(char *filename)
 {
-    LPVOID fileBuf = 0;
+    debug_read_file_result result = {};
     HANDLE hFile = CreateFile(filename, GENERIC_READ, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
     if (hFile != INVALID_HANDLE_VALUE) {
         LARGE_INTEGER fileSize;
         if (GetFileSizeEx(hFile, &fileSize)) {
             uint32_t fileSize32 = safeTruncateUint64(fileSize.QuadPart);
-            fileBuf = VirtualAlloc(0, fileSize.QuadPart, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+            result.content = VirtualAlloc(0, fileSize.QuadPart, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
             DWORD nRead;
-            if (ReadFile(hFile, fileBuf, fileSize.QuadPart, &nRead, 0)) {
+            if (ReadFile(hFile, result.content, fileSize32, &nRead, 0)
+                && nRead == fileSize32) {
                 DEBUG("hey we actually managed to read the file\n");
                 DEBUG("bytes read: %d\n", nRead);
+                result.size = nRead;
             }
             else {
-                DEBUGplatformFreeFile(fileBuf);
-                fileBuf = 0;
+                DEBUGplatformFreeFile(result.content);
+                result.content = 0;
+                result.size = 0;
             }
         }
         CloseHandle(hFile);
@@ -333,13 +335,26 @@ DEBUGplatformReadFile(char *filename)
         DWORD err = GetLastError();
         DEBUG("error while opening file: error code %d\n", err);
     }
-    return (void *) fileBuf;
+    return result;
 }
+
 internal void DEBUGplatformFreeFile(void *file)
 {
     VirtualFree(file, 0, MEM_RELEASE);
 }
-// internal bool DEBUGplatformWriteFile(void *file, uint32_t size, void* content);
+
+internal bool DEBUGplatformWriteFile(char *filename, uint32_t size, void* content)
+{
+    bool result = false;
+    HANDLE hFile = CreateFile(filename, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+    if (hFile != INVALID_HANDLE_VALUE) {
+        DWORD nWritten;
+        if (WriteFile(hFile, content, size, &nWritten, 0) && nWritten == size) {
+            result = true;
+        }
+    }
+    return result;
+}
 
 int CALLBACK
 WinMain(HINSTANCE hInstance,
@@ -347,17 +362,6 @@ WinMain(HINSTANCE hInstance,
         LPSTR     lpCmdLine,
         int       nShowCmd)
 {
-
-
-
-    void* myBitmap = DEBUGplatformReadFile("..\\mario.bmp");
-
-    DEBUGplatformFreeFile(myBitmap);
-
-    return 0;
-
-
-
     LARGE_INTEGER perfFreq;
     QueryPerformanceFrequency(&perfFreq);
 

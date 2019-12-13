@@ -52,11 +52,13 @@ gameUpdateAndRender(game_memory *memory,
     game_state *gameState = (game_state*)memory->permStorage;
     if (!memory->isInitialized)
         {
-            // void *fileMemory = DEBUGplatformReadEntireFile("test.bmp");
-            // if (fileMemory)
-            //     {
-            //         DEBUGplatformFreeFile(fileMemory);
-            //     }
+            char* filename = __FILE__;
+            debug_read_file_result file = DEBUGplatformReadFile(filename);
+            if (file.content) {
+                DEBUGplatformWriteFile("test.out", file.size, file.content);
+                DEBUGplatformFreeFile(file.content);
+            }
+
             gameState->greenOffset = 0;
             gameState->blueOffset = 0;
             gameState->toneHz = 256;

@@ -19,9 +19,14 @@
 
 
 #if HANDMADE_INTERNAL
-internal void *DEBUGplatformReadFile(char *filename);
+struct debug_read_file_result
+{
+    uint32_t size;
+    void * content;
+};
+internal debug_read_file_result DEBUGplatformReadFile(char *filename);
 internal void DEBUGplatformFreeFile(void *file);
-internal bool DEBUGplatformWriteFile(void *file, uint32_t size, void* content);
+internal bool DEBUGplatformWriteFile(char *filename, uint32_t size, void* content);
 #endif
 
 
