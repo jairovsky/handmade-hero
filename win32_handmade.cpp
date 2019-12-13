@@ -99,6 +99,7 @@ win32InitDSound(HWND hwnd, int32_t samplesPerSec, int32_t bufSize)
 
 internal void
 win32ResizeDIBSection(win32_buffer *buf, int width, int height)
+
 {
     if (buf->memory) {
         VirtualFree(buf->memory, 0, MEM_RELEASE);
@@ -307,15 +308,15 @@ win32NormalizeXInputThumbstick(SHORT val, float *normalizedVal)
         }
 }
 
-
-internal void
-*DEBUGplatformReadFile(char *filename)
+internal void *
+DEBUGplatformReadFile(char *filename)
 {
     LPVOID fileBuf = 0;
     HANDLE hFile = CreateFile(filename, GENERIC_READ, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
     if (hFile != INVALID_HANDLE_VALUE) {
         LARGE_INTEGER fileSize;
         if (GetFileSizeEx(hFile, &fileSize)) {
+            uint32_t fileSize32 = safeTruncateUint64(fileSize.QuadPart);
             fileBuf = VirtualAlloc(0, fileSize.QuadPart, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
             DWORD nRead;
             if (ReadFile(hFile, fileBuf, fileSize.QuadPart, &nRead, 0)) {

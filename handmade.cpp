@@ -1,5 +1,11 @@
 #include "handmade.h"
 
+inline uint32_t
+safeTruncateUint64(uint64_t val)
+{
+    assert(val<= UINT_MAX);
+    return (uint32_t)val;
+}
 
 static void
 gameOutputSound(game_sound_buffer *buf, int toneHz)
