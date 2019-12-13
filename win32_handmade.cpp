@@ -177,7 +177,7 @@ MainWndCallback(HWND hwnd,
     case WM_KEYDOWN:
     case WM_KEYUP:
         {
-            uint32_t kCode = wParam;
+            uint32_t kCode = (uint32_t)wParam;
             if (KeyIsDown(lParam) != KeyWasDown(lParam))
                 {
                     switch (kCode)
@@ -316,12 +316,10 @@ DEBUGplatformReadFile(char *filename)
         LARGE_INTEGER fileSize;
         if (GetFileSizeEx(hFile, &fileSize)) {
             uint32_t fileSize32 = safeTruncateUint64(fileSize.QuadPart);
-            result.content = VirtualAlloc(0, fileSize.QuadPart, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+            result.content = VirtualAlloc(0, (uint32_t)fileSize.QuadPart, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
             DWORD nRead;
             if (ReadFile(hFile, result.content, fileSize32, &nRead, 0)
                 && nRead == fileSize32) {
-                DEBUG("hey we actually managed to read the file\n");
-                DEBUG("bytes read: %d\n", nRead);
                 result.size = nRead;
             }
             else {
@@ -333,7 +331,7 @@ DEBUGplatformReadFile(char *filename)
         CloseHandle(hFile);
     } else {
         DWORD err = GetLastError();
-        DEBUG("error while opening file: error code %d\n", err);
+        DEBUG("DBG error while opening file: error code %d\n", err);
     }
     return result;
 }
@@ -414,9 +412,9 @@ WinMain(HINSTANCE hInstance,
             #endif
             game_memory gameMemory = {};
             gameMemory.permStorageSize = 64 * MEGABYTE;
-            gameMemory.transientStorageSize = 4 * GIGABYTE;
+            gameMemory.transientStorageSize = 1 * GIGABYTE;
             uint64_t totalStorageSize = gameMemory.permStorageSize + gameMemory.transientStorageSize;
-            gameMemory.permStorage = VirtualAlloc(baseAddress, totalStorageSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+            gameMemory.permStorage = VirtualAlloc(baseAddress, (uint32_t)totalStorageSize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
             gameMemory.transientStorage = ((uint8_t *)gameMemory.permStorage + gameMemory.permStorageSize);
             game_input input[2] = {};
             game_input *newInput = &input[0];
@@ -488,31 +486,26 @@ WinMain(HINSTANCE hInstance,
                 buf.pitch  = backbuffer.pitch;
 
 
-                DWORD byteToLock;
+                DWORD byteToLock = 0;
+                DWORD bytesToWrite = 0;
                 DWORD targetCursor;
-                DWORD bytesToWrite;
                 DWORD playCursor;
                 DWORD writeCursor;
                 bool soundIsValid = false;
-                if (SUCCEEDED(soundBuf->GetCurrentPosition(&playCursor, &writeCursor)))
-                    {
-                        byteToLock = (soundOutput.runningSampleIdx * soundOutput.bytesPerSample) % soundOutput.soundBufSize;
-                        targetCursor = (playCursor + soundOutput.nLatencySamples * soundOutput.bytesPerSample)% soundOutput.soundBufSize;
-                        bytesToWrite;
-                        if (byteToLock > targetCursor)
-                            {
-                                bytesToWrite = soundOutput.soundBufSize - byteToLock + targetCursor;
-                            }
-                        else
-                            {
-                                bytesToWrite = targetCursor - byteToLock;
-                            }
-                        soundIsValid = true;
+                if (SUCCEEDED(soundBuf->GetCurrentPosition(&playCursor, &writeCursor))) {
+                    byteToLock = (soundOutput.runningSampleIdx * soundOutput.bytesPerSample) % soundOutput.soundBufSize;
+                    targetCursor = (playCursor + soundOutput.nLatencySamples * soundOutput.bytesPerSample)% soundOutput.soundBufSize;
+                    bytesToWrite;
+                    if (byteToLock > targetCursor) {
+                        bytesToWrite = soundOutput.soundBufSize - byteToLock + targetCursor;
+                    } else {
+                        bytesToWrite = targetCursor - byteToLock;
                     }
-                else
-                    {
-                        soundIsValid = false;
-                    }
+                    soundIsValid = true;
+                }
+                else {
+                    soundIsValid = false;
+                }
                 game_sound_buffer sBuf = {};
                 sBuf.samplesPerSec = soundOutput.samplePerSec;
                 sBuf.sampleCount = bytesToWrite / soundOutput.bytesPerSample;
@@ -520,10 +513,9 @@ WinMain(HINSTANCE hInstance,
 
                 gameUpdateAndRender(&gameMemory, newInput, &buf, &sBuf);
 
-                if (soundIsValid)
-                    {
-                        win32FillSoundBuffer(&soundOutput, byteToLock, bytesToWrite, &sBuf);
-                    }
+                if (soundIsValid) {
+                    win32FillSoundBuffer(&soundOutput, byteToLock, bytesToWrite, &sBuf);
+                }
 
                 win32_window_dimension d = win32GetWindowDimension(wnd);
                 /* NOTE(jairo): finally found out that the clipping noise bug is actually caused by this call (but only the window is being shown).
@@ -542,8 +534,8 @@ WinMain(HINSTANCE hInstance,
                 DEBUG("DBG cpu cycles elapsed: %lld\n", cycleCountEnd - cycleCount);
 
                 game_input *temp = newInput;
-                game_input *newInput = oldInput;
-                game_input *oldInput = temp;
+                newInput = oldInput;
+                oldInput = temp;
             }
         } else {
             //TODO

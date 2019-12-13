@@ -34,8 +34,8 @@ renderWeirdGradient(game_offscreen_buffer *buf, int blueOffset, int greenOffset)
             /*
               pixel in memory:  00 00 00 00 (four hexadecimal values: B G R padding)
             */
-            uint8_t b = (x + blueOffset);
-            uint8_t g = (y + greenOffset);
+            uint8_t b = (uint8_t)(x + blueOffset);
+            uint8_t g = (uint8_t)(y + greenOffset);
             *pixel++ = ((g << 8) | b) ;
         }
         row += buf->pitch;

@@ -1,6 +1,6 @@
 #ifndef WIN32_HANDMADE_H
 
-#define DEBUG(...) {char cad[512]; sprintf(cad, __VA_ARGS__);  OutputDebugString(cad);}
+#define DEBUG(...) {char cad[512]; sprintf_s(cad, __VA_ARGS__);  OutputDebugString(cad);}
 
 struct win32_window_dimension
 {
