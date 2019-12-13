@@ -157,7 +157,6 @@ MainWndCallback(HWND hwnd,
     case WM_CLOSE:
         {
             running = false;
-            //PostQuitMessage(0);
             OutputDebugString("WM_CLOSE event received\n");
             break;
         }
@@ -175,45 +174,13 @@ MainWndCallback(HWND hwnd,
     case WM_SYSKEYDOWN:
     case WM_SYSKEYUP:
     case WM_KEYDOWN:
-    case WM_KEYUP:
-        {
-            uint32_t kCode = (uint32_t)wParam;
-            if (KeyIsDown(lParam) != KeyWasDown(lParam))
-                {
-                    switch (kCode)
-                        {
-                        case 'W':
-                            OutputDebugString("hey you pressed W on keyboard\n");
-                            break;
-                        case 'S':
-                        case 'D':
-                        case 'A':
-                        case 'Q':
-                        case 'E':
-                        case VK_UP:
-                        case VK_LEFT:
-                        case VK_RIGHT:
-                        case VK_DOWN:
-                        case VK_ESCAPE:
-                            running = false;
-                            break;
-                        case VK_SPACE:
-                            break;
-
-                        case VK_F4:
-                            if (AltIsDown(lParam))
-                                {
-                                    running = false;
-                                }
-                        }
-                }
-            break;
-        }
+    case WM_KEYUP: {
+        assert(!"keyboard input event came from non-dispatch message");
+        break;
+    }
 
     default:
-        {
-            r = DefWindowProc(hwnd, uMsg, wParam, lParam);
-        }
+        r = DefWindowProc(hwnd, uMsg, wParam, lParam);
     }
 
     return r;
@@ -292,6 +259,13 @@ win32ProcessXInputBtn(WORD btnStateBits,
 {
     newState->endedDown = (btnStateBits & btnBit) == btnBit;
     newState->nHalfTransitions = (oldState->endedDown != newState->endedDown) ? 1 : 0;
+}
+
+void win32ProcessKeyboardInput(game_button_state *newState, bool isDown)
+{
+    newState->endedDown = isDown;
+    newState->nHalfTransitions++;
+    DEBUG("DBG processed keyboard\n");
 }
 
 internal void
@@ -420,6 +394,9 @@ WinMain(HINSTANCE hInstance,
             game_input *newInput = &input[0];
             game_input *oldInput = &input[1];
             while (running) {
+                game_controller_input *keyboardController = &newInput->controllers[0];
+                game_controller_input zeroedInput = {};
+                *keyboardController = zeroedInput;
                 LARGE_INTEGER perfCounter;
                 QueryPerformanceCounter(&perfCounter);
                 uint64_t cycleCount = __rdtsc();
@@ -428,8 +405,51 @@ WinMain(HINSTANCE hInstance,
                         OutputDebugString("quitting");
                         running = false;
                     }
-                    TranslateMessage(&msg);
-                    DispatchMessage(&msg);
+                    switch (msg.message) {
+                    case WM_SYSKEYDOWN:
+                    case WM_SYSKEYUP:
+                    case WM_KEYDOWN:
+                    case WM_KEYUP: {
+                        uint32_t kCode = (uint32_t)msg.wParam;
+                        bool isDown = KeyIsDown(msg.lParam);
+                        if (KeyIsDown(msg.lParam) != KeyWasDown(msg.lParam)) {
+                            switch (kCode) {
+                            case 'W':
+                                win32ProcessKeyboardInput(&keyboardController->up, isDown);
+                            case 'S':
+                                win32ProcessKeyboardInput(&keyboardController->down, isDown);
+                            case 'D':
+                                win32ProcessKeyboardInput(&keyboardController->right, isDown);
+                            case 'A':
+                                win32ProcessKeyboardInput(&keyboardController->left, isDown);
+                            case 'Q':
+                                win32ProcessKeyboardInput(&keyboardController->leftBumper, isDown);
+                            case 'E':
+                                win32ProcessKeyboardInput(&keyboardController->rightBumper, isDown);
+                                break;
+                            case VK_UP:
+                            case VK_LEFT:
+                            case VK_RIGHT:
+                            case VK_DOWN:
+                            case VK_ESCAPE:
+                                running = false;
+                                break;
+                            case VK_SPACE:
+                                break;
+
+                            case VK_F4:
+                                if (AltIsDown(msg.lParam)) {
+                                        running = false;
+                                }
+                            }
+                        }
+                        break;
+                    }
+                    default:
+                        TranslateMessage(&msg);
+                        DispatchMessage(&msg);
+
+                    }
                 }
 
                 for (WORD ctrlIdx = 0; ctrlIdx < XUSER_MAX_COUNT; ++ctrlIdx)
