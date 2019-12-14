@@ -277,11 +277,11 @@ win32NormalizeXInputThumbstick(SHORT val, SHORT deadzone, float *normalizedVal)
 {
     if (val < -deadzone)
     {
-        *normalizedVal = (float)val / (SHRT_MIN * -1.0f);
+        *normalizedVal = (float)(val + deadzone) / (SHRT_MIN * -1.0f - deadzone);
     }
     else if (val > deadzone)
     {
-        *normalizedVal = (float)val / SHRT_MAX;
+        *normalizedVal = (float)(val - deadzone) / (SHRT_MAX - deadzone);
     }
 }
 
