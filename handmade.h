@@ -60,7 +60,7 @@ struct game_controller_input
     float stickAverageY;
     union
     {
-        game_button_state buttons[10];
+        game_button_state buttons[12];
         struct
         {
             game_button_state moveUp;
@@ -75,6 +75,7 @@ struct game_controller_input
             game_button_state rightBumper;
             game_button_state start;
             game_button_state select;
+            game_button_state __struct_end;
         };
     };
 };

@@ -50,6 +50,11 @@ gameUpdateAndRender(game_memory *memory,
                     game_offscreen_buffer *videoBuf,
                     game_sound_buffer *soundBuf)
 {
+    /* NOTE(jairo): ensures that the 'buttons' array has size equal to
+       the number of fields in the union struct */
+    assert((&input->controllers[0].__struct_end - &input->controllers[0].buttons[0]) ==
+           arrayCount(input->controllers[0].buttons));
+    // NOTE(jairo): ensures we have enough memory to store game state
     assert(sizeof(game_state) <= memory->permStorageSize);
     game_state *gameState = (game_state *)memory->permStorage;
     if (!memory->isInitialized)
