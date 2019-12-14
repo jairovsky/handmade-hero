@@ -58,33 +58,35 @@ gameUpdateAndRender(game_memory *memory,
                 DEBUGplatformWriteFile("test.out", file.size, file.content);
                 DEBUGplatformFreeFile(file.content);
             }
-
             gameState->greenOffset = 0;
             gameState->blueOffset = 0;
             gameState->toneHz = 256;
             memory->isInitialized = true;
         }
-    game_controller_input *input0 = &input->controllers[0];
-    if (input0->isAnalog)
+    for (int ctrlIdx = 0; ctrlIdx < arrayCount(input->controllers); ctrlIdx++)
         {
-            gameState->toneHz = 256 + (int)(128.0f * input0->endY);
-            gameState->blueOffset += (int)(4.0f * input0->endX);
-        }
-    if (input0->down.endedDown)
-        {
-            gameState->greenOffset -= 1;
-        }
-    if (input0->up.endedDown)
-        {
-            gameState->greenOffset += 1;
-        }
-    if (input0->left.endedDown)
-        {
-            gameState->blueOffset += 1;
-        }
-    if (input0->right.endedDown)
-        {
-            gameState->blueOffset -= 1;
+            game_controller_input *input0 = &input->controllers[ctrlIdx];
+            if (input0->isAnalog)
+                {
+                    gameState->toneHz = 256 + (int)(128.0f * input0->stickAverageY);
+                    // gameState->blueOffset += (int)(4.0f * input0->stickAverageX);
+                }
+            if (input0->moveDown.endedDown)
+                {
+                    gameState->greenOffset -= 1;
+                }
+            if (input0->moveUp.endedDown)
+                {
+                    gameState->greenOffset += 1;
+                }
+            if (input0->moveLeft.endedDown)
+                {
+                    gameState->blueOffset += 1;
+                }
+            if (input0->moveRight.endedDown)
+                {
+                    gameState->blueOffset -= 1;
+                }
         }
     gameOutputSound(soundBuf, gameState->toneHz);
     renderWeirdGradient(videoBuf, gameState->blueOffset, gameState->greenOffset);

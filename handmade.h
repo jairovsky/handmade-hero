@@ -55,25 +55,25 @@ struct game_button_state
 struct game_controller_input
 {
     bool isAnalog;
-    float startX;
-    float startY;
-    float minX;
-    float minY;
-    float maxX;
-    float maxY;
-    float endX;
-    float endY;
+    float stickAverageX;
+    float stickAverageY;
     union
     {
-        game_button_state buttons[6];
+        game_button_state buttons[10];
         struct
         {
-            game_button_state up;
-            game_button_state down;
-            game_button_state left;
-            game_button_state right;
+            game_button_state moveUp;
+            game_button_state moveDown;
+            game_button_state moveLeft;
+            game_button_state moveRight;
+            game_button_state action0;
+            game_button_state action1;
+            game_button_state action2;
+            game_button_state action3;
             game_button_state leftBumper;
             game_button_state rightBumper;
+            game_button_state start;
+            game_button_state select;
         };
     };
 };
