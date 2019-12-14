@@ -1,7 +1,7 @@
 @echo off
 
-
-IF NOT EXIST build mkdir build
+rmdir /s /q build
+mkdir build
 pushd build
 cl -DHANDMADE_INTERNAL=1 ^
    -DHANDMADE_SLOW_BUILD=1 ^
