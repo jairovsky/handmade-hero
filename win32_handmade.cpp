@@ -502,8 +502,7 @@ WinMain(HINSTANCE hInstance,
 
                 game_controller_input *oldKeyboardController = getController(oldInput, 0);
                 game_controller_input *newKeyboardController = getController(newInput, 0);
-                game_controller_input zeroedInput = {};
-                *newKeyboardController = zeroedInput;
+                *newKeyboardController = {};
                 newKeyboardController->isConnected = true;
                 for (uint8_t btnIdx = 0; btnIdx < arrayCount(newKeyboardController->buttons); btnIdx++)
                 {
