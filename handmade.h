@@ -1,6 +1,6 @@
 #ifndef HANDMADE_H
 
-#ifndef HANDMADE_SLOW_BUILD
+#ifdef HANDMADE_SLOW_BUILD
 #define assert(expr) if (!(expr)) {*(int *) 0 = 0;}
 #else
 #define assert(expr)
