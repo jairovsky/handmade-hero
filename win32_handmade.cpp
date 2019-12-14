@@ -481,21 +481,21 @@ WinMain(HINSTANCE hInstance,
             game_input *oldInput = &input[1];
             while (running)
             {
+                LARGE_INTEGER perfCounter;
+                QueryPerformanceCounter(&perfCounter);
+                uint64_t cycleCount = __rdtsc();
+
                 game_controller_input *oldKeyboardController = getController(oldInput, 0);
                 game_controller_input *newKeyboardController = getController(newInput, 0);
                 game_controller_input zeroedInput = {};
                 *newKeyboardController = zeroedInput;
                 newKeyboardController->isConnected = true;
-                for (uint8_t btnIdx = 0; btnIdx < arrayCount(newInput->controllers); btnIdx++)
+                for (uint8_t btnIdx = 0; btnIdx < arrayCount(newKeyboardController->buttons); btnIdx++)
                 {
-                    newKeyboardController->buttons[btnIdx].endedDown = oldKeyboardController->buttons[btnIdx].endedDown = 0;
+                    newKeyboardController->buttons[btnIdx].endedDown =
+                        oldKeyboardController->buttons[btnIdx].endedDown;
                 }
-                LARGE_INTEGER perfCounter;
-                QueryPerformanceCounter(&perfCounter);
-                uint64_t cycleCount = __rdtsc();
-
                 win32ProcessPendingMessages(newKeyboardController);
-
                 for (WORD ctrlIdx = 0; ctrlIdx < XUSER_MAX_COUNT; ++ctrlIdx)
                 {
                     WORD internalCtrlIdx = ctrlIdx + 1;
