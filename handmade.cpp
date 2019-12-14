@@ -65,27 +65,30 @@ gameUpdateAndRender(game_memory *memory,
         }
     for (int ctrlIdx = 0; ctrlIdx < arrayCount(input->controllers); ctrlIdx++)
         {
-            game_controller_input *input0 = &input->controllers[ctrlIdx];
-            if (input0->isAnalog)
+            game_controller_input *input0 = getController(input, ctrlIdx);
+            if (input0->isConnected)
                 {
-                    gameState->toneHz = 256 + (int)(128.0f * input0->stickAverageY);
-                    // gameState->blueOffset += (int)(4.0f * input0->stickAverageX);
-                }
-            if (input0->moveDown.endedDown)
-                {
-                    gameState->greenOffset -= 1;
-                }
-            if (input0->moveUp.endedDown)
-                {
-                    gameState->greenOffset += 1;
-                }
-            if (input0->moveLeft.endedDown)
-                {
-                    gameState->blueOffset += 1;
-                }
-            if (input0->moveRight.endedDown)
-                {
-                    gameState->blueOffset -= 1;
+                    if (input0->isAnalog)
+                        {
+                            gameState->toneHz = 256 + (int)(128.0f * input0->stickAverageY);
+                            // gameState->blueOffset += (int)(4.0f * input0->stickAverageX);
+                        }
+                    if (input0->moveDown.endedDown)
+                        {
+                            gameState->greenOffset -= 1;
+                        }
+                    if (input0->moveUp.endedDown)
+                        {
+                            gameState->greenOffset += 1;
+                        }
+                    if (input0->moveLeft.endedDown)
+                        {
+                            gameState->blueOffset += 1;
+                        }
+                    if (input0->moveRight.endedDown)
+                        {
+                            gameState->blueOffset -= 1;
+                    }
                 }
         }
     gameOutputSound(soundBuf, gameState->toneHz);

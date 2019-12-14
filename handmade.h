@@ -54,6 +54,7 @@ struct game_button_state
 
 struct game_controller_input
 {
+    bool isConnected = false;
     bool isAnalog;
     float stickAverageX;
     float stickAverageY;
@@ -82,6 +83,11 @@ struct game_input
 {
     game_controller_input controllers[5];
 };
+inline game_controller_input *getController(game_input *input, int idx)
+{
+    assert(idx < arrayCount(input->controllers));
+    return &input->controllers[idx];
+}
 
 struct game_state
 {

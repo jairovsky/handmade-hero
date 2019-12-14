@@ -459,10 +459,11 @@ WinMain(HINSTANCE hInstance,
             game_input *newInput = &input[0];
             game_input *oldInput = &input[1];
             while (running) {
-                game_controller_input *oldKeyboardController = &oldInput->controllers[0];
-                game_controller_input *newKeyboardController = &newInput->controllers[0];
+                game_controller_input *oldKeyboardController = getController(oldInput, 0);
+                game_controller_input *newKeyboardController = getController(newInput, 0);
                 game_controller_input zeroedInput = {};
                 *newKeyboardController = zeroedInput;
+                newKeyboardController->isConnected = true;
                 for (uint8_t btnIdx = 0; btnIdx < arrayCount(newInput->controllers); btnIdx++) {
                     newKeyboardController->buttons[btnIdx].endedDown = oldKeyboardController->buttons[btnIdx].endedDown = 0;
                 }
@@ -475,24 +476,12 @@ WinMain(HINSTANCE hInstance,
                 for (WORD ctrlIdx = 0; ctrlIdx < XUSER_MAX_COUNT; ++ctrlIdx)
                     {
                         WORD internalCtrlIdx = ctrlIdx + 1;
-                        game_controller_input *oldController = &oldInput->controllers[internalCtrlIdx];
-                        game_controller_input *newController = &newInput->controllers[internalCtrlIdx];
+                        game_controller_input *oldController = getController(oldInput, internalCtrlIdx);
+                        game_controller_input *newController = getController(newInput, internalCtrlIdx);
                         XINPUT_STATE inputState;
                         DWORD gotInput = XInputGetState(ctrlIdx, &inputState);
                         if (gotInput == ERROR_SUCCESS) {
                             XINPUT_GAMEPAD* pad = &inputState.Gamepad;
-                            bool padUp = (pad->wButtons & XINPUT_GAMEPAD_DPAD_UP);
-                            bool padDown = (pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN);
-                            bool padLeft = (pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT);
-                            bool padRight = (pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT);
-                            bool padStart = (pad->wButtons & XINPUT_GAMEPAD_START);
-                            bool padBack = (pad->wButtons & XINPUT_GAMEPAD_BACK);
-                            bool padLShoulder = (pad->wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER);
-                            bool padRShoulder = (pad->wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER);
-                            bool padA = (pad->wButtons & XINPUT_GAMEPAD_A);
-                            bool padB = (pad->wButtons & XINPUT_GAMEPAD_B);
-                            bool padX = (pad->wButtons & XINPUT_GAMEPAD_X);
-                            bool padY = (pad->wButtons & XINPUT_GAMEPAD_Y);
                             newController->stickAverageX = 0;
                             newController->stickAverageY = 0;
                             win32NormalizeXInputThumbstick(pad->sThumbLX,
@@ -502,6 +491,15 @@ WinMain(HINSTANCE hInstance,
                                                            XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE,
                                                            &newController->stickAverageY);
                             newController->isAnalog = true;
+                            newController->isConnected = true;
+                            bool padUp    = (pad->wButtons & XINPUT_GAMEPAD_DPAD_UP);
+                            bool padDown  = (pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN);
+                            bool padLeft  = (pad->wButtons & XINPUT_GAMEPAD_DPAD_LEFT);
+                            bool padRight = (pad->wButtons & XINPUT_GAMEPAD_DPAD_RIGHT);
+                            if (padUp)    { newController->stickAverageY = 1; }
+                            if (padDown)  { newController->stickAverageY = -1; }
+                            if (padLeft)  { newController->stickAverageX = -1; }
+                            if (padRight) { newController->stickAverageX = 1; }
                             // NOTE(jairo): converting analog stick input to digital arrows
                             float stickThreshold = 0.5f;
                             win32ProcessXInputBtn((newController->stickAverageX < -stickThreshold) ? 1 : 0,
