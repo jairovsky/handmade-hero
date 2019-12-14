@@ -304,7 +304,22 @@ internal void win32ProcessPendingMessages(game_controller_input *keyboardControl
         {
             uint32_t kCode = (uint32_t)msg.wParam;
             bool isDown = KeyIsDown(msg.lParam);
-            if (KeyIsDown(msg.lParam) != KeyWasDown(msg.lParam))
+            bool wasDown = KeyWasDown(msg.lParam);
+            /* NOTE(jairo): while doing some tests with the keyboard
+            input, I found a bug. If I hold any key for about 3-4 seconds,
+            Windows sends me a WM_KEYDOWN event with the wasDown flag set to false!
+            (it's as if I had stopped pressing the key). To fix this, we need to
+            check the "repeat count" bits of lParam to see if the event was caused
+            by an actual keypress or by Windows auto-key-repeat feature.
+            */
+            bool isNotKeyRepeat = (HIWORD(msg.lParam) & KF_REPEAT) == 0;
+            // NOTE(jairo): it's impossible to receive a key-repeat event if it's
+            // keyup, so we just ignore
+            if (msg.message == WM_KEYUP || msg.message == WM_SYSKEYUP)
+            {
+                isNotKeyRepeat = true;
+            }
+            if (isDown != wasDown && isNotKeyRepeat)
             {
                 switch (kCode)
                 {
