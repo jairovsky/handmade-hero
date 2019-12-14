@@ -506,15 +506,19 @@ WinMain(HINSTANCE hInstance,
                     if (gotInput == ERROR_SUCCESS)
                     {
                         XINPUT_GAMEPAD *pad = &inputState.Gamepad;
-                        newController->stickAverageX = 0;
-                        newController->stickAverageY = 0;
+                        newController->stickAverageX = 0.0f;
+                        newController->stickAverageY = 0.0f;
                         win32NormalizeXInputThumbstick(pad->sThumbLX,
                                                        XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE,
                                                        &newController->stickAverageX);
                         win32NormalizeXInputThumbstick(pad->sThumbLY,
                                                        XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE,
                                                        &newController->stickAverageY);
-                        newController->isAnalog = true;
+
+                        if (newController->stickAverageX != 0.0f || newController->stickAverageY != 0.0f)
+                        {
+                            newController->isAnalog = true;
+                        }
                         newController->isConnected = true;
                         bool padUp = (pad->wButtons & XINPUT_GAMEPAD_DPAD_UP);
                         bool padDown = (pad->wButtons & XINPUT_GAMEPAD_DPAD_DOWN);
@@ -523,18 +527,22 @@ WinMain(HINSTANCE hInstance,
                         if (padUp)
                         {
                             newController->stickAverageY = 1;
+                            newController->isAnalog = false;
                         }
                         if (padDown)
                         {
                             newController->stickAverageY = -1;
+                            newController->isAnalog = false;
                         }
                         if (padLeft)
                         {
                             newController->stickAverageX = -1;
+                            newController->isAnalog = false;
                         }
                         if (padRight)
                         {
                             newController->stickAverageX = 1;
+                            newController->isAnalog = false;
                         }
                         // NOTE(jairo): converting analog stick input to digital arrows
                         float stickThreshold = 0.5f;
