@@ -11,6 +11,6 @@ cl -DHANDMADE_INTERNAL=1 ^
    -MT ^
    -Z7 ../win32_handmade.cpp ^
    /link -subsystem:windows,5.1 ^
-   User32.lib Gdi32.lib Kernel32.lib
+   User32.lib Gdi32.lib Kernel32.lib Winmm.lib
 popd
 

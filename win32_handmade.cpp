@@ -16,6 +16,7 @@
 global_var bool running = true;
 global_var win32_buffer backbuffer;
 global_var LPDIRECTSOUNDBUFFER soundBuf;
+global_var int64_t perfCounterFrequency;
 
 #define KeyWasDown(param) ((param & (1 << 30))) != 0
 #define KeyIsDown(param) ((param & (1 << 31))) == 0
@@ -269,7 +270,6 @@ void win32ProcessKeyboardInput(game_button_state *newState, bool isDown)
     assert(newState->endedDown != isDown);
     newState->endedDown = isDown;
     newState->nHalfTransitions++;
-    DEBUG("DBG processed keyboard\n");
 }
 
 internal void
@@ -428,6 +428,20 @@ internal bool DEBUGplatformWriteFile(char *filename, uint32_t size, void *conten
     return result;
 }
 
+inline LARGE_INTEGER
+win32GetWallclock()
+{
+    LARGE_INTEGER result;
+    QueryPerformanceCounter(&result);
+    return result;
+}
+
+inline float
+win32GetSecondsDiff(LARGE_INTEGER end, LARGE_INTEGER start)
+{
+    return (float)(end.QuadPart - start.QuadPart) / (float)perfCounterFrequency;
+}
+
 int CALLBACK
 WinMain(HINSTANCE hInstance,
         HINSTANCE hPrevInstance,
@@ -436,6 +450,9 @@ WinMain(HINSTANCE hInstance,
 {
     LARGE_INTEGER perfFreq;
     QueryPerformanceFrequency(&perfFreq);
+    perfCounterFrequency = perfFreq.QuadPart;
+    UINT schedulerGranularityMs = 1;
+    bool sleepIsGranular = (timeBeginPeriod(schedulerGranularityMs) == TIMERR_NOERROR);
 
     win32LoadXInput();
     win32ResizeDIBSection(&backbuffer, 1280, 720);
@@ -444,6 +461,8 @@ WinMain(HINSTANCE hInstance,
     wc.lpfnWndProc = MainWndCallback;
     wc.hInstance = hInstance;
     wc.lpszClassName = "HandmadeHeroWindowClass";
+
+    float targetSecsPerFrame = 1.0f/30;
 
     if (RegisterClass(&wc))
     {
@@ -496,9 +515,7 @@ WinMain(HINSTANCE hInstance,
             game_input *oldInput = &input[1];
             while (running)
             {
-                LARGE_INTEGER perfCounter;
-                QueryPerformanceCounter(&perfCounter);
-                uint64_t cycleCount = __rdtsc();
+                LARGE_INTEGER perfCounterStart = win32GetWallclock();
 
                 game_controller_input *oldKeyboardController = getController(oldInput, 0);
                 game_controller_input *newKeyboardController = getController(newInput, 0);
@@ -638,17 +655,31 @@ WinMain(HINSTANCE hInstance,
                 win32_window_dimension d = win32GetWindowDimension(wnd);
                 win32DisplayBufferInWindow(&backbuffer, hdc, d.width, d.height);
 
-                LARGE_INTEGER perfCounterEnd;
-                QueryPerformanceCounter(&perfCounterEnd);
-                uint64_t cycleCountEnd = __rdtsc();
-                int64_t msPerFrame = (1000 * (perfCounterEnd.QuadPart - perfCounter.QuadPart)) / perfFreq.QuadPart;
-                DEBUG("DBG perf count: %lld\n", (1000 * (perfCounterEnd.QuadPart - perfCounter.QuadPart)) / perfFreq.QuadPart);
-                DEBUG("DBG fps: %lld\n", 1000 / msPerFrame);
-                DEBUG("DBG cpu cycles elapsed: %lld\n", cycleCountEnd - cycleCount);
-
                 game_input *temp = newInput;
                 newInput = oldInput;
                 oldInput = temp;
+
+                LARGE_INTEGER workFinishedCounter = win32GetWallclock();
+                float timeSpentOnActualWork = win32GetSecondsDiff(workFinishedCounter, perfCounterStart);
+                float timeToFlipFrame = timeSpentOnActualWork;
+                if (timeToFlipFrame < targetSecsPerFrame)
+                {
+                    while (timeToFlipFrame < targetSecsPerFrame)
+                    {
+                        if (sleepIsGranular)
+                        {
+                            DWORD sleepMs = (DWORD)(1000.0f * (targetSecsPerFrame - timeToFlipFrame));
+                            Sleep(sleepMs);
+                        }
+                        timeToFlipFrame = win32GetSecondsDiff(win32GetWallclock(), perfCounterStart);
+                    }
+                }
+                else
+                {
+                    // TODO: handle missed frame
+                    DEBUG("DBG missed a frame\n");
+                }
+                LARGE_INTEGER perfCounterEnd = win32GetWallclock();
             }
         }
         else
