@@ -662,7 +662,10 @@ WinMain(HINSTANCE hInstance,
                         if (sleepIsGranular)
                         {
                             DWORD sleepMs = (DWORD)(1000.0f * (targetSecsPerFrame - timeToFlipFrame));
-                            Sleep(sleepMs);
+                            if (sleepMs > 0)
+                            {
+                                Sleep(sleepMs);
+                            }
                         }
                         timeToFlipFrame = win32GetSecondsDiff(win32GetWallclock(), perfCounterStart);
                     }
