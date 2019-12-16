@@ -652,13 +652,6 @@ WinMain(HINSTANCE hInstance,
                     win32FillSoundBuffer(&soundOutput, byteToLock, bytesToWrite, &sBuf);
                 }
 
-                win32_window_dimension d = win32GetWindowDimension(wnd);
-                win32DisplayBufferInWindow(&backbuffer, hdc, d.width, d.height);
-
-                game_input *temp = newInput;
-                newInput = oldInput;
-                oldInput = temp;
-
                 LARGE_INTEGER workFinishedCounter = win32GetWallclock();
                 float timeSpentOnActualWork = win32GetSecondsDiff(workFinishedCounter, perfCounterStart);
                 float timeToFlipFrame = timeSpentOnActualWork;
@@ -679,6 +672,14 @@ WinMain(HINSTANCE hInstance,
                     // TODO: handle missed frame
                     DEBUG("DBG missed a frame\n");
                 }
+
+                win32_window_dimension d = win32GetWindowDimension(wnd);
+                win32DisplayBufferInWindow(&backbuffer, hdc, d.width, d.height);
+
+                game_input *temp = newInput;
+                newInput = oldInput;
+                oldInput = temp;
+
                 LARGE_INTEGER perfCounterEnd = win32GetWallclock();
             }
         }
