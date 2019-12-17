@@ -442,6 +442,17 @@ win32GetSecondsDiff(LARGE_INTEGER end, LARGE_INTEGER start)
     return (float)(end.QuadPart - start.QuadPart) / (float)perfCounterFrequency;
 }
 
+internal void
+win32DebugSyncDisplay(win32_buffer *backBuf, int size, DWORD *lastPlayCursor,
+                      win32_sound_output *sound, float secPerFrame)
+{
+    for (int i = 0; i < size; i++)
+    {
+        float coeff = (float)backBuf->width / (float)sound->soundBufSize;
+    }
+
+}
+
 int CALLBACK
 WinMain(HINSTANCE hInstance,
         HINSTANCE hPrevInstance,
@@ -462,7 +473,8 @@ WinMain(HINSTANCE hInstance,
     wc.hInstance = hInstance;
     wc.lpszClassName = "HandmadeHeroWindowClass";
 
-    float targetSecsPerFrame = 1.0f/30;
+#define gameUpdateHz 30
+#define targetSecsPerFrame (1.0f / gameUpdateHz)
 
     if (RegisterClass(&wc))
     {
@@ -513,6 +525,10 @@ WinMain(HINSTANCE hInstance,
             game_input input[2] = {};
             game_input *newInput = &input[0];
             game_input *oldInput = &input[1];
+            #if HANDMADE_INTERNAL
+            DWORD debugLastPlayCursor[gameUpdateHz] = {};
+            DWORD debugLastPlayCursorIndex = 0;
+            #endif
             while (running)
             {
                 LARGE_INTEGER perfCounterStart = win32GetWallclock();
@@ -676,8 +692,26 @@ WinMain(HINSTANCE hInstance,
                     DEBUG("DBG missed a frame\n");
                 }
 
+#if HANDMADE_INTERNAL
+                win32DebugSyncDisplay(&backbuffer, gameUpdateHz, debugLastPlayCursor, &soundOutput, targetSecsPerFrame);
+#endif
+
                 win32_window_dimension d = win32GetWindowDimension(wnd);
                 win32DisplayBufferInWindow(&backbuffer, hdc, d.width, d.height);
+
+#if HANDMADE_INTERNAL
+#pragma warning(push)
+#pragma warning(disable : 4101)
+                DWORD debugCurrentPlayCursor;
+                DWORD debugWriteCursor;
+                soundBuf->GetCurrentPosition(&debugCurrentPlayCursor, &writeCursor);
+                debugLastPlayCursor[debugLastPlayCursorIndex++] = debugCurrentPlayCursor;
+                if (debugLastPlayCursorIndex == gameUpdateHz)
+                {
+                    debugLastPlayCursorIndex = 0;
+                }
+#pragma warning(pop)
+#endif
 
                 game_input *temp = newInput;
                 newInput = oldInput;
