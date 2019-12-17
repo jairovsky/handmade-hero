@@ -443,12 +443,30 @@ win32GetSecondsDiff(LARGE_INTEGER end, LARGE_INTEGER start)
 }
 
 internal void
+win32DebugDrawVertical(win32_buffer *backBuf, int x, int top, int bottom, uint32_t color)
+{
+    uint8_t *pixel = (uint8_t *)backBuf->memory + x * backBuf->bytesPerPixel + top * backBuf->pitch;
+    for(int y = top; y < bottom; y++)
+    {
+        *(uint32_t*)pixel = color;
+        pixel += backBuf->pitch;
+    }
+}
+
+internal void
 win32DebugSyncDisplay(win32_buffer *backBuf, int size, DWORD *lastPlayCursor,
                       win32_sound_output *sound, float secPerFrame)
 {
+    int padx = 16;
+    int pady = 64;
+    int top = pady;
+    int bottom = backbuffer.height - pady;
+    float coeff = ((float)backBuf->width - (2 * padx)) / (float)sound->soundBufSize;
     for (int i = 0; i < size; i++)
     {
-        float coeff = (float)backBuf->width / (float)sound->soundBufSize;
+        float r = (float)lastPlayCursor[i];
+        int x = padx + (int)(coeff * r);
+        win32DebugDrawVertical(backBuf, x, top, bottom, 0xffffffff);
     }
 
 }
@@ -526,7 +544,7 @@ WinMain(HINSTANCE hInstance,
             game_input *newInput = &input[0];
             game_input *oldInput = &input[1];
             #if HANDMADE_INTERNAL
-            DWORD debugLastPlayCursor[gameUpdateHz] = {};
+            DWORD debugLastPlayCursor[gameUpdateHz / 2] = {0};
             DWORD debugLastPlayCursorIndex = 0;
             #endif
             while (running)
@@ -693,7 +711,7 @@ WinMain(HINSTANCE hInstance,
                 }
 
 #if HANDMADE_INTERNAL
-                win32DebugSyncDisplay(&backbuffer, gameUpdateHz, debugLastPlayCursor, &soundOutput, targetSecsPerFrame);
+                win32DebugSyncDisplay(&backbuffer, arrayCount(debugLastPlayCursor), debugLastPlayCursor, &soundOutput, targetSecsPerFrame);
 #endif
 
                 win32_window_dimension d = win32GetWindowDimension(wnd);
@@ -706,7 +724,7 @@ WinMain(HINSTANCE hInstance,
                 DWORD debugWriteCursor;
                 soundBuf->GetCurrentPosition(&debugCurrentPlayCursor, &writeCursor);
                 debugLastPlayCursor[debugLastPlayCursorIndex++] = debugCurrentPlayCursor;
-                if (debugLastPlayCursorIndex == gameUpdateHz)
+                if (debugLastPlayCursorIndex == arrayCount(debugLastPlayCursor))
                 {
                     debugLastPlayCursorIndex = 0;
                 }
