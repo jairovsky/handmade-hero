@@ -19,9 +19,9 @@ struct win32_buffer {
 
 struct win32_sound_output
 {
-    int samplePerSec;
-    int bytesPerSample;
-    int soundBufSize;
+    DWORD samplePerSec;
+    DWORD bytesPerSample;
+    DWORD soundBufSize;
     uint32_t runningSampleIdx;
     uint32_t nLatencySamples;
 };
@@ -58,6 +58,14 @@ DIRECTSOUND_CREATE(DirectSoundCreateStub)
 }
 global_var dsound_create* DirectSoundCreate_ = DirectSoundCreateStub;
 #define DirectSoundCreate DirectSoundCreate_
+
+
+struct win32_debug_time_marker
+{
+    DWORD playCursor;
+    DWORD writeCursor;
+};
+
 
 #define WIN32_HANDMADE_H
 #endif

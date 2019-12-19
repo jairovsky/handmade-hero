@@ -1,3 +1,4 @@
+// stopped at 35 mins episode 019
 #include <stdint.h>
 #include <math.h>
 #include <cstdio>
@@ -454,19 +455,24 @@ win32DebugDrawVertical(win32_buffer *backBuf, int x, int top, int bottom, uint32
 }
 
 internal void
-win32DebugSyncDisplay(win32_buffer *backBuf, int size, DWORD *lastPlayCursor,
+win32DebugSyncDisplay(win32_buffer *backBuf, int markerCount, win32_debug_time_marker *markers,
                       win32_sound_output *sound, float secPerFrame)
 {
     int padx = 16;
     int pady = 64;
     int top = pady;
-    int bottom = backbuffer.height - pady;
+    int bottom = backbuffer.height - pady*5;
     float coeff = ((float)backBuf->width - (2 * padx)) / (float)sound->soundBufSize;
-    for (int i = 0; i < size; i++)
+    for (int i = 0; i < markerCount; i++)
     {
-        float r = (float)lastPlayCursor[i];
-        int x = padx + (int)(coeff * r);
-        win32DebugDrawVertical(backBuf, x, top, bottom, 0xffffffff);
+        win32_debug_time_marker *currMarker = &markers[i];
+        assert(currMarker->playCursor < sound->soundBufSize);
+        float playFloat = (float)currMarker->playCursor;
+        float writeFloat = (float)currMarker->writeCursor;
+        int playX = padx + (int)(coeff * playFloat);
+        int writeX = padx + (int)(coeff * writeFloat);
+        win32DebugDrawVertical(backBuf, playX, top, bottom, 0xffffffff);
+        win32DebugDrawVertical(backBuf, writeX, top*5, bottom + pady*2, 0xffffffff);
     }
 
 }
@@ -544,13 +550,12 @@ WinMain(HINSTANCE hInstance,
             game_input *newInput = &input[0];
             game_input *oldInput = &input[1];
             #if HANDMADE_INTERNAL
-            DWORD debugLastPlayCursor[gameUpdateHz / 2] = {0};
-            DWORD debugLastPlayCursorIndex = 0;
+            win32_debug_time_marker debugTimeMarkers[gameUpdateHz / 2] = {0};
+            DWORD debugLastTimeMarkerIndex = 0;
             #endif
+            LARGE_INTEGER perfCounterStart = win32GetWallclock();
             while (running)
             {
-                LARGE_INTEGER perfCounterStart = win32GetWallclock();
-
                 game_controller_input *oldKeyboardController = getController(oldInput, 0);
                 game_controller_input *newKeyboardController = getController(newInput, 0);
                 *newKeyboardController = {};
@@ -709,33 +714,26 @@ WinMain(HINSTANCE hInstance,
                     // TODO: handle missed frame
                     DEBUG("DBG missed a frame\n");
                 }
+                perfCounterStart = win32GetWallclock();
 
 #if HANDMADE_INTERNAL
-                win32DebugSyncDisplay(&backbuffer, arrayCount(debugLastPlayCursor), debugLastPlayCursor, &soundOutput, targetSecsPerFrame);
+                win32DebugSyncDisplay(&backbuffer, arrayCount(debugTimeMarkers), debugTimeMarkers, &soundOutput, targetSecsPerFrame);
 #endif
-
                 win32_window_dimension d = win32GetWindowDimension(wnd);
                 win32DisplayBufferInWindow(&backbuffer, hdc, d.width, d.height);
-
 #if HANDMADE_INTERNAL
-#pragma warning(push)
-#pragma warning(disable : 4101)
-                DWORD debugCurrentPlayCursor;
-                DWORD debugWriteCursor;
-                soundBuf->GetCurrentPosition(&debugCurrentPlayCursor, &writeCursor);
-                debugLastPlayCursor[debugLastPlayCursorIndex++] = debugCurrentPlayCursor;
-                if (debugLastPlayCursorIndex == arrayCount(debugLastPlayCursor))
+                win32_debug_time_marker *debugMarker = &debugTimeMarkers[debugLastTimeMarkerIndex++];
+                soundBuf->GetCurrentPosition(&debugMarker->playCursor, &debugMarker->writeCursor);
+                if (debugLastTimeMarkerIndex == arrayCount(debugTimeMarkers))
                 {
-                    debugLastPlayCursorIndex = 0;
+                    debugLastTimeMarkerIndex = 0;
                 }
-#pragma warning(pop)
 #endif
 
                 game_input *temp = newInput;
                 newInput = oldInput;
                 oldInput = temp;
 
-                LARGE_INTEGER perfCounterEnd = win32GetWallclock();
             }
         }
         else
