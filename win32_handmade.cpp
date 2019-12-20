@@ -1,4 +1,3 @@
-// stopped at 35 mins episode 019
 #include <stdint.h>
 #include <math.h>
 #include <cstdio>
@@ -22,6 +21,10 @@ global_var int64_t perfCounterFrequency;
 #define KeyWasDown(param) ((param & (1 << 30))) != 0
 #define KeyIsDown(param) ((param & (1 << 31))) == 0
 #define AltIsDown(param) ((param & (1 << 29))) != 0
+
+#define GAME_UPDATE_HZ 30
+#define TARGET_SECS_PER_FRAME (1.0f / GAME_UPDATE_HZ)
+#define AUDIO_LATENCY_IN_FRAMES 3
 
 win32_window_dimension
 win32GetWindowDimension(HWND hwnd)
@@ -497,9 +500,6 @@ WinMain(HINSTANCE hInstance,
     wc.hInstance = hInstance;
     wc.lpszClassName = "HandmadeHeroWindowClass";
 
-#define gameUpdateHz 30
-#define targetSecsPerFrame (1.0f / gameUpdateHz)
-
     if (RegisterClass(&wc))
     {
         HWND wnd = CreateWindowEx(
@@ -523,14 +523,7 @@ WinMain(HINSTANCE hInstance,
             soundOutput.samplePerSec = 48000;
             soundOutput.bytesPerSample = sizeof(int16_t) * 2;
             soundOutput.soundBufSize = soundOutput.samplePerSec * soundOutput.bytesPerSample;
-            /*
-              TODO(jairo): investigate why Casey was able to use a lower latency (dividing by 15).
-              In my computer if I try to divide by 15 the sound starts making clipping/skipping noises.
-              If try even lower latencies (dividing by 60), the hardware goes full circle and I get
-              back to the situation where there's a latency of 1 second between me touching the controller stick
-              and the change in the sound pitch taking place.
-            */
-            soundOutput.nLatencySamples = soundOutput.samplePerSec / 7;
+            soundOutput.nLatencySamples = AUDIO_LATENCY_IN_FRAMES * (soundOutput.samplePerSec / GAME_UPDATE_HZ);
             win32InitDSound(wnd, soundOutput.samplePerSec, soundOutput.soundBufSize);
             win32ClearSoundBuffer(&soundOutput);
             soundBuf->Play(0, 0, DSBPLAY_LOOPING);
@@ -550,9 +543,11 @@ WinMain(HINSTANCE hInstance,
             game_input *newInput = &input[0];
             game_input *oldInput = &input[1];
             #if HANDMADE_INTERNAL
-            win32_debug_time_marker debugTimeMarkers[gameUpdateHz / 2] = {0};
+            win32_debug_time_marker debugTimeMarkers[GAME_UPDATE_HZ / 2] = {0};
             DWORD debugLastTimeMarkerIndex = 0;
             #endif
+            DWORD lastPlayCursor = 0;
+            DWORD soundIsValid = false;
             LARGE_INTEGER perfCounterStart = win32GetWallclock();
             while (running)
             {
@@ -657,13 +652,10 @@ WinMain(HINSTANCE hInstance,
                 DWORD byteToLock = 0;
                 DWORD bytesToWrite = 0;
                 DWORD targetCursor;
-                DWORD playCursor;
-                DWORD writeCursor;
-                bool soundIsValid = false;
-                if (SUCCEEDED(soundBuf->GetCurrentPosition(&playCursor, &writeCursor)))
+                if (soundIsValid)
                 {
                     byteToLock = (soundOutput.runningSampleIdx * soundOutput.bytesPerSample) % soundOutput.soundBufSize;
-                    targetCursor = (playCursor + soundOutput.nLatencySamples * soundOutput.bytesPerSample) % soundOutput.soundBufSize;
+                    targetCursor = (lastPlayCursor + soundOutput.nLatencySamples * soundOutput.bytesPerSample) % soundOutput.soundBufSize;
                     bytesToWrite;
                     if (byteToLock > targetCursor)
                     {
@@ -673,11 +665,6 @@ WinMain(HINSTANCE hInstance,
                     {
                         bytesToWrite = targetCursor - byteToLock;
                     }
-                    soundIsValid = true;
-                }
-                else
-                {
-                    soundIsValid = false;
                 }
                 game_sound_buffer sBuf = {};
                 sBuf.samplesPerSec = soundOutput.samplePerSec;
@@ -694,13 +681,13 @@ WinMain(HINSTANCE hInstance,
                 LARGE_INTEGER workFinishedCounter = win32GetWallclock();
                 float timeSpentOnActualWork = win32GetSecondsDiff(workFinishedCounter, perfCounterStart);
                 float timeToFlipFrame = timeSpentOnActualWork;
-                if (timeToFlipFrame < targetSecsPerFrame)
+                if (timeToFlipFrame < TARGET_SECS_PER_FRAME)
                 {
-                    while (timeToFlipFrame < targetSecsPerFrame)
+                    while (timeToFlipFrame < TARGET_SECS_PER_FRAME)
                     {
                         if (sleepIsGranular)
                         {
-                            DWORD sleepMs = (DWORD)(1000.0f * (targetSecsPerFrame - timeToFlipFrame));
+                            DWORD sleepMs = (DWORD)(1000.0f * (TARGET_SECS_PER_FRAME - timeToFlipFrame));
                             if (sleepMs > 0)
                             {
                                 Sleep(sleepMs);
@@ -717,17 +704,33 @@ WinMain(HINSTANCE hInstance,
                 perfCounterStart = win32GetWallclock();
 
 #if HANDMADE_INTERNAL
-                win32DebugSyncDisplay(&backbuffer, arrayCount(debugTimeMarkers), debugTimeMarkers, &soundOutput, targetSecsPerFrame);
+                win32DebugSyncDisplay(&backbuffer, arrayCount(debugTimeMarkers), debugTimeMarkers, &soundOutput, TARGET_SECS_PER_FRAME);
 #endif
                 win32_window_dimension d = win32GetWindowDimension(wnd);
                 win32DisplayBufferInWindow(&backbuffer, hdc, d.width, d.height);
+                DWORD playCursor;
+                DWORD writeCursor;
+                if(soundBuf->GetCurrentPosition(&playCursor, &writeCursor) == DS_OK)
+                {
+                    lastPlayCursor = playCursor;
+                    if (!soundIsValid)
+                    {
+                        soundOutput.runningSampleIdx = writeCursor / soundOutput.bytesPerSample;
+                    }
+                    soundIsValid = true;
+                }
+                else
+                {
+                    soundIsValid = false;
+                }
 #if HANDMADE_INTERNAL
                 win32_debug_time_marker *debugMarker = &debugTimeMarkers[debugLastTimeMarkerIndex++];
-                soundBuf->GetCurrentPosition(&debugMarker->playCursor, &debugMarker->writeCursor);
                 if (debugLastTimeMarkerIndex == arrayCount(debugTimeMarkers))
                 {
                     debugLastTimeMarkerIndex = 0;
                 }
+                debugMarker->playCursor = playCursor;
+                debugMarker->writeCursor = writeCursor;
 #endif
 
                 game_input *temp = newInput;
