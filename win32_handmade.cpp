@@ -1,3 +1,4 @@
+stopped at 2h22 episode 020 (Q&A)
 #include <stdint.h>
 #include <math.h>
 #include <cstdio>
@@ -24,7 +25,6 @@ global_var int64_t perfCounterFrequency;
 
 #define GAME_UPDATE_HZ 30
 #define TARGET_SECS_PER_FRAME (1.0f / GAME_UPDATE_HZ)
-#define AUDIO_LATENCY_IN_FRAMES 3
 
 win32_window_dimension
 win32GetWindowDimension(HWND hwnd)
@@ -459,7 +459,7 @@ win32DebugDrawVertical(win32_buffer *backBuf, int x, int top, int bottom, uint32
 
 internal void
 win32DebugSyncDisplay(win32_buffer *backBuf, int markerCount, win32_debug_time_marker *markers,
-                      win32_sound_output *sound, float secPerFrame)
+                      win32_sound_output *sound, float secPerFrame, int currentMarker)
 {
     int padx = 16;
     int pady = 64;
@@ -474,10 +474,35 @@ win32DebugSyncDisplay(win32_buffer *backBuf, int markerCount, win32_debug_time_m
         float writeFloat = (float)currMarker->writeCursor;
         int playX = padx + (int)(coeff * playFloat);
         int writeX = padx + (int)(coeff * writeFloat);
+        if (i == currentMarker)
+        {
+        win32DebugDrawVertical(backBuf, playX, top, bottom, 0x00ff0000);
+        win32DebugDrawVertical(backBuf, writeX, top*5, bottom + pady*2, 0x00ff0000);
+        }
+        else
+        {
         win32DebugDrawVertical(backBuf, playX, top, bottom, 0xffffffff);
         win32DebugDrawVertical(backBuf, writeX, top*5, bottom + pady*2, 0xffffffff);
+        }
     }
 
+}
+
+internal void
+win32DebugAudioCursorDistance(LPDIRECTSOUNDBUFFER sBuf, win32_sound_output soundOutput)
+{
+    DWORD playCursor;
+    DWORD writeCursor;
+    sBuf->GetCurrentPosition(&playCursor, &writeCursor);
+    if (writeCursor < playCursor) // if cursor is wrapping around the circular buffer
+    {
+        writeCursor += soundOutput.soundBufSize;
+    }
+    DWORD bytesBetweenCursors = writeCursor - playCursor;
+    DEBUG("DBG bytesBetweenCursors: %u\n", bytesBetweenCursors);
+    DWORD nSamplesBetweenCursors = bytesBetweenCursors / soundOutput.bytesPerSample;
+    float audioLatencyInSeconds = (float)nSamplesBetweenCursors / (float)soundOutput.samplePerSec;
+    DEBUG("DBG audioLatencyInSeconds: %.5f\n", audioLatencyInSeconds);
 }
 
 int CALLBACK
@@ -523,7 +548,8 @@ WinMain(HINSTANCE hInstance,
             soundOutput.samplePerSec = 48000;
             soundOutput.bytesPerSample = sizeof(int16_t) * 2;
             soundOutput.soundBufSize = soundOutput.samplePerSec * soundOutput.bytesPerSample;
-            soundOutput.nLatencySamples = AUDIO_LATENCY_IN_FRAMES * (soundOutput.samplePerSec / GAME_UPDATE_HZ);
+            soundOutput.nLatencySamples = 3 * (soundOutput.samplePerSec / GAME_UPDATE_HZ);
+            soundOutput.safetyBytes = (soundOutput.samplePerSec * soundOutput.bytesPerSample / GAME_UPDATE_HZ) / 3;
             win32InitDSound(wnd, soundOutput.samplePerSec, soundOutput.soundBufSize);
             win32ClearSoundBuffer(&soundOutput);
             soundBuf->Play(0, 0, DSBPLAY_LOOPING);
@@ -542,11 +568,12 @@ WinMain(HINSTANCE hInstance,
             game_input input[2] = {};
             game_input *newInput = &input[0];
             game_input *oldInput = &input[1];
-            #if HANDMADE_INTERNAL
+#if HANDMADE_INTERNAL
             win32_debug_time_marker debugTimeMarkers[GAME_UPDATE_HZ / 2] = {0};
             DWORD debugLastTimeMarkerIndex = 0;
-            #endif
+#endif
             DWORD lastPlayCursor = 0;
+            DWORD lastWriteCursor = 0;
             DWORD soundIsValid = false;
             LARGE_INTEGER perfCounterStart = win32GetWallclock();
             while (running)
@@ -649,32 +676,62 @@ WinMain(HINSTANCE hInstance,
                 buf.height = backbuffer.height;
                 buf.pitch = backbuffer.pitch;
 
-                DWORD byteToLock = 0;
-                DWORD bytesToWrite = 0;
-                DWORD targetCursor;
-                if (soundIsValid)
+                gameUpdateAndRender(&gameMemory, newInput, &buf);
+
+                DWORD playCursor;
+                DWORD writeCursor;
+                if (soundBuf->GetCurrentPosition(&playCursor, &writeCursor) == DS_OK)
                 {
-                    byteToLock = (soundOutput.runningSampleIdx * soundOutput.bytesPerSample) % soundOutput.soundBufSize;
-                    targetCursor = (lastPlayCursor + soundOutput.nLatencySamples * soundOutput.bytesPerSample) % soundOutput.soundBufSize;
-                    bytesToWrite;
+                    if (!soundIsValid)
+                    {
+                        soundOutput.runningSampleIdx = writeCursor / soundOutput.bytesPerSample;
+                        soundIsValid = true;
+                    }
+                    DWORD byteToLock = (soundOutput.runningSampleIdx * soundOutput.bytesPerSample) % soundOutput.soundBufSize;
+                    DWORD expectedSoundBytesPerFrame = (soundOutput.samplePerSec * soundOutput.bytesPerSample) / GAME_UPDATE_HZ;
+                    DWORD expectedFrameBoundaryByte = playCursor + expectedSoundBytesPerFrame;
+                    DWORD safeWriteCursor = writeCursor;
+                    if (safeWriteCursor < playCursor)
+                    {
+                        safeWriteCursor += soundOutput.soundBufSize;
+                    }
+                    assert(safeWriteCursor >= playCursor);
+                    safeWriteCursor += soundOutput.safetyBytes;
+                    bool audioCardIsLowLatency = safeWriteCursor < expectedFrameBoundaryByte;
+                    DWORD targetCursor = 0;
+                    if(audioCardIsLowLatency)
+                    {
+                        targetCursor = (expectedFrameBoundaryByte + expectedSoundBytesPerFrame);
+                    }
+                    else
+                    {
+                        targetCursor = (writeCursor + expectedSoundBytesPerFrame + soundOutput.safetyBytes);
+                    }
+                    targetCursor = targetCursor % soundOutput.soundBufSize;
+
+                    DWORD bytesToWrite = 0;
                     if (byteToLock > targetCursor)
                     {
-                        bytesToWrite = soundOutput.soundBufSize - byteToLock + targetCursor;
+                        bytesToWrite = (soundOutput.soundBufSize - byteToLock) + targetCursor;
                     }
                     else
                     {
                         bytesToWrite = targetCursor - byteToLock;
                     }
-                }
-                game_sound_buffer sBuf = {};
-                sBuf.samplesPerSec = soundOutput.samplePerSec;
-                sBuf.sampleCount = bytesToWrite / soundOutput.bytesPerSample;
-                sBuf.samples = soundSamples;
 
-                gameUpdateAndRender(&gameMemory, newInput, &buf, &sBuf);
+                    game_sound_buffer sBuf = {};
+                    sBuf.samplesPerSec = soundOutput.samplePerSec;
+                    sBuf.sampleCount = bytesToWrite / soundOutput.bytesPerSample;
+                    if (byteToLock > targetCursor)
+                    {
 
-                if (soundIsValid)
-                {
+DEBUG("");
+                    }
+                    sBuf.samples = soundSamples;
+                    gameGetSoundSamples(&gameMemory, &sBuf);
+#if HANDMADE_INTERNAL
+                    win32DebugAudioCursorDistance(soundBuf, soundOutput);
+#endif
                     win32FillSoundBuffer(&soundOutput, byteToLock, bytesToWrite, &sBuf);
                 }
 
@@ -704,19 +761,18 @@ WinMain(HINSTANCE hInstance,
                 perfCounterStart = win32GetWallclock();
 
 #if HANDMADE_INTERNAL
-                win32DebugSyncDisplay(&backbuffer, arrayCount(debugTimeMarkers), debugTimeMarkers, &soundOutput, TARGET_SECS_PER_FRAME);
+                win32DebugSyncDisplay(
+                    &backbuffer,
+                    arrayCount(debugTimeMarkers),
+                    debugTimeMarkers,
+                    &soundOutput,
+                    TARGET_SECS_PER_FRAME,
+                    debugLastTimeMarkerIndex -1);
 #endif
                 win32_window_dimension d = win32GetWindowDimension(wnd);
                 win32DisplayBufferInWindow(&backbuffer, hdc, d.width, d.height);
-                DWORD playCursor;
-                DWORD writeCursor;
-                if(soundBuf->GetCurrentPosition(&playCursor, &writeCursor) == DS_OK)
+                if(soundBuf->GetCurrentPosition(&lastPlayCursor, &lastWriteCursor) == DS_OK)
                 {
-                    lastPlayCursor = playCursor;
-                    if (!soundIsValid)
-                    {
-                        soundOutput.runningSampleIdx = writeCursor / soundOutput.bytesPerSample;
-                    }
                     soundIsValid = true;
                 }
                 else
@@ -729,8 +785,8 @@ WinMain(HINSTANCE hInstance,
                 {
                     debugLastTimeMarkerIndex = 0;
                 }
-                debugMarker->playCursor = playCursor;
-                debugMarker->writeCursor = writeCursor;
+                debugMarker->playCursor = lastPlayCursor;
+                debugMarker->writeCursor = lastWriteCursor;
 #endif
 
                 game_input *temp = newInput;

@@ -22,6 +22,7 @@ struct win32_sound_output
     DWORD samplePerSec;
     DWORD bytesPerSample;
     DWORD soundBufSize;
+    DWORD safetyBytes;
     uint32_t runningSampleIdx;
     uint32_t nLatencySamples;
 };

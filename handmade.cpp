@@ -53,8 +53,7 @@ renderWeirdGradient(game_offscreen_buffer *buf, int blueOffset, int greenOffset)
 internal void
 gameUpdateAndRender(game_memory *memory,
                     game_input *input,
-                    game_offscreen_buffer *videoBuf,
-                    game_sound_buffer *soundBuf)
+                    game_offscreen_buffer *videoBuf)
 {
     /* NOTE(jairo): ensures that the 'buttons' array has size equal to
        the number of fields in the union struct */
@@ -105,6 +104,12 @@ gameUpdateAndRender(game_memory *memory,
             }
         }
     }
-    gameOutputSound(soundBuf, gameState->toneHz);
     renderWeirdGradient(videoBuf, gameState->blueOffset, gameState->greenOffset);
+}
+
+internal void
+gameGetSoundSamples(game_memory *memory, game_sound_buffer *soundBuf)
+{
+    game_state *gameState = (game_state *)memory->permStorage;
+    gameOutputSound(soundBuf, gameState->toneHz);
 }
