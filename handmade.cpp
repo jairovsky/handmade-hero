@@ -21,6 +21,10 @@ gameOutputSound(game_sound_buffer *buf, int toneHz)
         *sampleOut++ = sampleValue;
         *sampleOut++ = sampleValue;
         tSine += 2.0f * PI / (float)wavePeriod;
+        if (tSine > 2 * PI)
+        {
+            tSine -= 2 * PI;
+        }
     }
 }
 

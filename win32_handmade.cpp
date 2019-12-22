@@ -1,4 +1,3 @@
-stopped at 2h22 episode 020 (Q&A)
 #include <stdint.h>
 #include <math.h>
 #include <cstdio>
