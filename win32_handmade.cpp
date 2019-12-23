@@ -1,15 +1,8 @@
-#include <stdint.h>
-#include <math.h>
-#include <cstdio>
-#include <limits.h>
-#include "handmade.cpp"
-
+#include "handmade.h"
 #include <windows.h>
 #include <xinput.h>
 #include <dsound.h>
 #include <fileapi.h>
-#include <errhandlingapi.h>
-
 #include "win32_handmade.h"
 
 // TODO fix this global
@@ -380,8 +373,7 @@ internal void win32ProcessPendingMessages(game_controller_input *keyboardControl
     }
 }
 
-internal debug_read_file_result
-DEBUGplatformReadFile(char *filename)
+debug_read_file_result DEBUGplatformReadFile(char *filename)
 {
     debug_read_file_result result = {};
     HANDLE hFile = CreateFile(filename, GENERIC_READ, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
@@ -414,12 +406,12 @@ DEBUGplatformReadFile(char *filename)
     return result;
 }
 
-internal void DEBUGplatformFreeFile(void *file)
+void DEBUGplatformFreeFile(void *file)
 {
     VirtualFree(file, 0, MEM_RELEASE);
 }
 
-internal bool DEBUGplatformWriteFile(char *filename, uint32_t size, void *content)
+bool DEBUGplatformWriteFile(char *filename, uint32_t size, void *content)
 {
     bool result = false;
     HANDLE hFile = CreateFile(filename, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);

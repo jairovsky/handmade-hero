@@ -1,5 +1,11 @@
 #ifndef HANDMADE_H
 
+#include <stdint.h>
+#include <limits.h>
+#include <stdint.h>
+#include <math.h>
+#include <cstdio>
+
 #ifdef HANDMADE_SLOW_BUILD
 #define assert(expr) if (!(expr)) {*(int *) 0 = 0;}
 #else
@@ -25,9 +31,9 @@ struct debug_read_file_result
     uint32_t size;
     void * content;
 };
-internal debug_read_file_result DEBUGplatformReadFile(char *filename);
-internal void DEBUGplatformFreeFile(void *file);
-internal bool DEBUGplatformWriteFile(char *filename, uint32_t size, void* content);
+debug_read_file_result DEBUGplatformReadFile(char *filename);
+void DEBUGplatformFreeFile(void *file);
+bool DEBUGplatformWriteFile(char *filename, uint32_t size, void* content);
 #endif
 
 
@@ -105,6 +111,13 @@ struct game_memory
     uint64_t transientStorageSize;
     void* transientStorage;
 };
+
+inline uint32_t safeTruncateUint64(uint64_t val);
+void gameUpdateAndRender(game_memory *memory,
+                         game_input *input,
+                         game_offscreen_buffer *videoBuf);
+void gameGetSoundSamples(game_memory *memory,
+                         game_sound_buffer *soundBuf);
 
 #define HANDMADE_H
 #endif
