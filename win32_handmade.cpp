@@ -35,12 +35,24 @@ struct win32_game_code
 internal void
 win32LoadGameCode(win32_game_code *gameCode)
 {
-    HMODULE gameCodeDll = LoadLibrary("handmade.dll");
+    CopyFile("handmade.dll", "tmp_handmade.dll", false);
+    HMODULE gameCodeDll = LoadLibrary("tmp_handmade.dll");
     if (gameCodeDll)
     {
         gameCode->gameCodeDll = gameCodeDll;
         gameCode->updateAndRender = (game_update_and_render *)GetProcAddress(gameCodeDll, "gameUpdateAndRender");
         gameCode->getSoundSamples = (game_get_sound_samples *)GetProcAddress(gameCodeDll, "gameGetSoundSamples");
+    }
+}
+
+internal void
+win32UnloadGameCode(win32_game_code *gameCode)
+{
+    if (gameCode->gameCodeDll)
+    {
+        FreeLibrary(gameCode->gameCodeDll);
+        gameCode->updateAndRender = 0;
+        gameCode->getSoundSamples = 0;
     }
 }
 
@@ -537,8 +549,6 @@ WinMain(HINSTANCE hInstance,
     UINT schedulerGranularityMs = 1;
     bool sleepIsGranular = (timeBeginPeriod(schedulerGranularityMs) == TIMERR_NOERROR);
 
-    win32_game_code game;
-    win32LoadGameCode(&game);
     win32LoadXInput();
     win32ResizeDIBSection(&backbuffer, 1280, 720);
     WNDCLASS wc = {};
@@ -603,6 +613,8 @@ WinMain(HINSTANCE hInstance,
             LARGE_INTEGER perfCounterStart = win32GetWallclock();
             while (running)
             {
+                win32_game_code game;
+                win32LoadGameCode(&game);
                 game_controller_input *oldKeyboardController = getController(oldInput, 0);
                 game_controller_input *newKeyboardController = getController(newInput, 0);
                 *newKeyboardController = {};
@@ -812,7 +824,7 @@ WinMain(HINSTANCE hInstance,
                 game_input *temp = newInput;
                 newInput = oldInput;
                 oldInput = temp;
-
+                win32UnloadGameCode(&game);
             }
         }
         else
