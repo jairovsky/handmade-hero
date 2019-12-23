@@ -1,21 +1,20 @@
 #include "handmade.h"
 
-void gameOutputSound(game_sound_buffer *buf, int toneHz)
+void gameOutputSound(game_sound_buffer *buf, int toneHz, float *tSine)
 {
-    local_persist float tSine;
     int16_t toneVolume = 3000;
     int wavePeriod = buf->samplesPerSec / toneHz;
     int16_t *sampleOut = buf->samples;
     for (int i = 0; i < buf->sampleCount; ++i)
     {
-        float sineValue = sinf(tSine);
+        float sineValue = sinf(*tSine);
         int16_t sampleValue = (int16_t)(sineValue * toneVolume);
         *sampleOut++ = sampleValue;
         *sampleOut++ = sampleValue;
-        tSine += 2.0f * PI / (float)wavePeriod;
-        if (tSine > 2 * PI)
+        *tSine += 2.0f * PI / (float)wavePeriod;
+        if (*tSine > 2 * PI)
         {
-            tSine -= 2 * PI;
+            *tSine -= 2 * PI;
         }
     }
 }
@@ -76,7 +75,6 @@ extern "C" HANDMADE_API GAME_UPDATE_AND_RENDER(gameUpdateAndRender)
             if (input0->isAnalog)
             {
                 gameState->toneHz = 256 + (int)(128.0f * input0->stickAverageY);
-                // gameState->blueOffset += (int)(4.0f * input0->stickAverageX);
             }
             if (input0->moveDown.endedDown)
             {
@@ -102,5 +100,5 @@ extern "C" HANDMADE_API GAME_UPDATE_AND_RENDER(gameUpdateAndRender)
 extern "C" HANDMADE_API GAME_GET_SOUND_SAMPLES(gameGetSoundSamples)
 {
     game_state *gameState = (game_state *)memory->permStorage;
-    gameOutputSound(soundBuf, gameState->toneHz);
+    gameOutputSound(soundBuf, gameState->toneHz, &gameState->tSine);
 }
