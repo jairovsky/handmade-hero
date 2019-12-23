@@ -8,8 +8,6 @@ set commonFlags=-DHANDMADE_INTERNAL=1 ^
    -wd4201 -wd4100 -wd4189
 set linkFlags=-opt:ref User32.lib Gdi32.lib Kernel32.lib Winmm.lib
 
-rmdir /s /q build
-mkdir build
 pushd build
 
 cl -DHANDMADE_EXPORTS=1 /LD %commonFlags% ../handmade.cpp
