@@ -18,15 +18,30 @@ global_var int64_t perfCounterFrequency;
 #define GAME_UPDATE_HZ 30
 #define TARGET_SECS_PER_FRAME (1.0f / GAME_UPDATE_HZ)
 
-win32_window_dimension
-win32GetWindowDimension(HWND hwnd)
+inline uint32_t
+safeTruncateUint64(uint64_t val)
 {
-    win32_window_dimension dim;
-    RECT rect;
-    GetClientRect(hwnd, &rect);
-    dim.width = rect.right - rect.left;
-    dim.height = rect.bottom - rect.top;
-    return dim;
+    assert(val <= UINT_MAX);
+    return (uint32_t)val;
+}
+
+struct win32_game_code
+{
+    HMODULE gameCodeDll;
+    game_update_and_render *updateAndRender;
+    game_get_sound_samples *getSoundSamples;
+};
+
+internal void
+win32LoadGameCode(win32_game_code *gameCode)
+{
+    HMODULE gameCodeDll = LoadLibrary("handmade.dll");
+    if (gameCodeDll)
+    {
+        gameCode->gameCodeDll = gameCodeDll;
+        gameCode->updateAndRender = (game_update_and_render *)GetProcAddress(gameCodeDll, "gameUpdateAndRender");
+        gameCode->getSoundSamples = (game_get_sound_samples *)GetProcAddress(gameCodeDll, "gameGetSoundSamples");
+    }
 }
 
 internal void
@@ -127,6 +142,17 @@ win32DisplayBufferInWindow(win32_buffer *buf, HDC hdc, int wWidth, int wHeight)
         &buf->info,
         DIB_RGB_COLORS,
         SRCCOPY);
+}
+
+win32_window_dimension
+win32GetWindowDimension(HWND hwnd)
+{
+    win32_window_dimension dim;
+    RECT rect;
+    GetClientRect(hwnd, &rect);
+    dim.width = rect.right - rect.left;
+    dim.height = rect.bottom - rect.top;
+    return dim;
 }
 
 LRESULT CALLBACK
@@ -511,6 +537,8 @@ WinMain(HINSTANCE hInstance,
     UINT schedulerGranularityMs = 1;
     bool sleepIsGranular = (timeBeginPeriod(schedulerGranularityMs) == TIMERR_NOERROR);
 
+    win32_game_code game;
+    win32LoadGameCode(&game);
     win32LoadXInput();
     win32ResizeDIBSection(&backbuffer, 1280, 720);
     WNDCLASS wc = {};
@@ -670,7 +698,7 @@ WinMain(HINSTANCE hInstance,
                 buf.height = backbuffer.height;
                 buf.pitch = backbuffer.pitch;
 
-                gameUpdateAndRender(&gameMemory, newInput, &buf);
+                game.updateAndRender(&gameMemory, newInput, &buf);
 
                 DWORD playCursor;
                 DWORD writeCursor;
@@ -717,7 +745,7 @@ WinMain(HINSTANCE hInstance,
                     sBuf.samplesPerSec = soundOutput.samplePerSec;
                     sBuf.sampleCount = bytesToWrite / soundOutput.bytesPerSample;
                     sBuf.samples = soundSamples;
-                    gameGetSoundSamples(&gameMemory, &sBuf);
+                    game.getSoundSamples(&gameMemory, &sBuf);
 #if HANDMADE_INTERNAL
                     win32DebugAudioCursorDistance(soundBuf, soundOutput);
 #endif

@@ -1,12 +1,5 @@
 #include "handmade.h"
 
-inline uint32_t
-safeTruncateUint64(uint64_t val)
-{
-    assert(val <= UINT_MAX);
-    return (uint32_t)val;
-}
-
 void gameOutputSound(game_sound_buffer *buf, int toneHz)
 {
     local_persist float tSine;
@@ -52,9 +45,7 @@ void renderWeirdGradient(game_offscreen_buffer *buf, int blueOffset, int greenOf
     }
 }
 
-void gameUpdateAndRender(game_memory *memory,
-                         game_input *input,
-                         game_offscreen_buffer *videoBuf)
+extern "C" HANDMADE_API GAME_UPDATE_AND_RENDER(gameUpdateAndRender)
 {
     /* NOTE(jairo): ensures that the 'buttons' array has size equal to
        the number of fields in the union struct */
@@ -65,13 +56,13 @@ void gameUpdateAndRender(game_memory *memory,
     game_state *gameState = (game_state *)memory->permStorage;
     if (!memory->isInitialized)
     {
-        char *filename = __FILE__;
-        debug_read_file_result file = DEBUGplatformReadFile(filename);
-        if (file.content)
-        {
-            DEBUGplatformWriteFile("test.out", file.size, file.content);
-            DEBUGplatformFreeFile(file.content);
-        }
+        // char *filename = __FILE__;
+        // debug_read_file_result file = DEBUGplatformReadFile(filename);
+        // if (file.content)
+        // {
+        //     DEBUGplatformWriteFile("test.out", file.size, file.content);
+        //     DEBUGplatformFreeFile(file.content);
+        // }
         gameState->greenOffset = 0;
         gameState->blueOffset = 0;
         gameState->toneHz = 256;
@@ -108,8 +99,7 @@ void gameUpdateAndRender(game_memory *memory,
     renderWeirdGradient(videoBuf, gameState->blueOffset, gameState->greenOffset);
 }
 
-void gameGetSoundSamples(game_memory *memory,
-                         game_sound_buffer *soundBuf)
+extern "C" HANDMADE_API GAME_GET_SOUND_SAMPLES(gameGetSoundSamples)
 {
     game_state *gameState = (game_state *)memory->permStorage;
     gameOutputSound(soundBuf, gameState->toneHz);

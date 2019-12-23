@@ -12,7 +12,7 @@ rmdir /s /q build
 mkdir build
 pushd build
 
-cl %commonFlags% ../handmade.cpp /link /DLL
+cl -DHANDMADE_EXPORTS=1 /LD %commonFlags% ../handmade.cpp
 cl %commonFlags% ../win32_handmade.cpp /link %linkFlags%
 popd
 

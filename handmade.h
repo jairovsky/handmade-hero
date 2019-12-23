@@ -6,6 +6,16 @@
 #include <math.h>
 #include <cstdio>
 
+#ifdef HANDMADE_WIN32
+#ifdef HANDMADE_EXPORTS
+#define HANDMADE_API __declspec(dllexport)
+#else
+#define HANDMADE_API __declspec(dllimport)
+#endif
+#else
+#define HANDMADE_API
+#endif
+
 #ifdef HANDMADE_SLOW_BUILD
 #define assert(expr) if (!(expr)) {*(int *) 0 = 0;}
 #else
@@ -112,12 +122,11 @@ struct game_memory
     void* transientStorage;
 };
 
-inline uint32_t safeTruncateUint64(uint64_t val);
-void gameUpdateAndRender(game_memory *memory,
-                         game_input *input,
-                         game_offscreen_buffer *videoBuf);
-void gameGetSoundSamples(game_memory *memory,
-                         game_sound_buffer *soundBuf);
+#define GAME_UPDATE_AND_RENDER(name) void name(game_memory *memory, game_input *input, game_offscreen_buffer *videoBuf)
+typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
+
+#define GAME_GET_SOUND_SAMPLES(name) void name(game_memory *memory, game_sound_buffer *soundBuf)
+typedef GAME_GET_SOUND_SAMPLES(game_get_sound_samples);
 
 #define HANDMADE_H
 #endif
