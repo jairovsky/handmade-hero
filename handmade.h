@@ -41,9 +41,15 @@ struct debug_read_file_result
     uint32_t size;
     void * content;
 };
-debug_read_file_result DEBUGplatformReadFile(char *filename);
-void DEBUGplatformFreeFile(void *file);
-bool DEBUGplatformWriteFile(char *filename, uint32_t size, void* content);
+
+#define DEBUG_PLATFORM_READ_FILE(name) debug_read_file_result name(char *filename)
+typedef DEBUG_PLATFORM_READ_FILE(debug_platform_read_file);
+
+#define DEBUG_PLATFORM_WRITE_FILE(name) bool name(char *filename, uint32_t size, void* content)
+typedef DEBUG_PLATFORM_WRITE_FILE(debug_platform_write_file);
+
+#define DEBUG_PLATFORM_FREE_FILE(name) void name(void *file)
+typedef DEBUG_PLATFORM_FREE_FILE(debug_platform_free_file);
 #endif
 
 
@@ -120,6 +126,10 @@ struct game_memory
     void* permStorage;
     uint64_t transientStorageSize;
     void* transientStorage;
+
+    debug_platform_read_file *DEBUGplatformReadFile;
+    debug_platform_write_file *DEBUGplatformWriteFile;
+    debug_platform_free_file *DEBUGplatformFreeFile;
 };
 
 #define GAME_UPDATE_AND_RENDER(name) void name(game_memory *memory, game_input *input, game_offscreen_buffer *videoBuf)

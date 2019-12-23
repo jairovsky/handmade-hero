@@ -399,7 +399,12 @@ internal void win32ProcessPendingMessages(game_controller_input *keyboardControl
     }
 }
 
-debug_read_file_result DEBUGplatformReadFile(char *filename)
+DEBUG_PLATFORM_FREE_FILE(DEBUGplatformFreeFile)
+{
+    VirtualFree(file, 0, MEM_RELEASE);
+}
+
+DEBUG_PLATFORM_READ_FILE(DEBUGplatformReadFile)
 {
     debug_read_file_result result = {};
     HANDLE hFile = CreateFile(filename, GENERIC_READ, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
@@ -432,12 +437,7 @@ debug_read_file_result DEBUGplatformReadFile(char *filename)
     return result;
 }
 
-void DEBUGplatformFreeFile(void *file)
-{
-    VirtualFree(file, 0, MEM_RELEASE);
-}
-
-bool DEBUGplatformWriteFile(char *filename, uint32_t size, void *content)
+DEBUG_PLATFORM_WRITE_FILE(DEBUGplatformWriteFile)
 {
     bool result = false;
     HANDLE hFile = CreateFile(filename, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
@@ -587,6 +587,9 @@ WinMain(HINSTANCE hInstance,
             uint64_t totalStorageSize = gameMemory.permStorageSize + gameMemory.transientStorageSize;
             gameMemory.permStorage = VirtualAlloc(baseAddress, (uint32_t)totalStorageSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
             gameMemory.transientStorage = ((uint8_t *)gameMemory.permStorage + gameMemory.permStorageSize);
+            gameMemory.DEBUGplatformReadFile = &DEBUGplatformReadFile;
+            gameMemory.DEBUGplatformWriteFile = &DEBUGplatformWriteFile;
+            gameMemory.DEBUGplatformFreeFile = &DEBUGplatformFreeFile;
             game_input input[2] = {};
             game_input *newInput = &input[0];
             game_input *oldInput = &input[1];

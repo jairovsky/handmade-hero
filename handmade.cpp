@@ -56,13 +56,13 @@ extern "C" HANDMADE_API GAME_UPDATE_AND_RENDER(gameUpdateAndRender)
     game_state *gameState = (game_state *)memory->permStorage;
     if (!memory->isInitialized)
     {
-        // char *filename = __FILE__;
-        // debug_read_file_result file = DEBUGplatformReadFile(filename);
-        // if (file.content)
-        // {
-        //     DEBUGplatformWriteFile("test.out", file.size, file.content);
-        //     DEBUGplatformFreeFile(file.content);
-        // }
+        char *filename = __FILE__;
+        debug_read_file_result file = memory->DEBUGplatformReadFile(filename);
+        if (file.content)
+        {
+            memory->DEBUGplatformWriteFile("test.out", file.size, file.content);
+            memory->DEBUGplatformFreeFile(file.content);
+        }
         gameState->greenOffset = 0;
         gameState->blueOffset = 0;
         gameState->toneHz = 256;
