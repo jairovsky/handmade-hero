@@ -716,11 +716,6 @@ WinMain(HINSTANCE hInstance,
                     game_sound_buffer sBuf = {};
                     sBuf.samplesPerSec = soundOutput.samplePerSec;
                     sBuf.sampleCount = bytesToWrite / soundOutput.bytesPerSample;
-                    if (byteToLock > targetCursor)
-                    {
-
-DEBUG("");
-                    }
                     sBuf.samples = soundSamples;
                     gameGetSoundSamples(&gameMemory, &sBuf);
 #if HANDMADE_INTERNAL
