@@ -270,7 +270,10 @@ win32ProcessXInputBtn(WORD btnStateBits,
 
 void win32ProcessKeyboardInput(game_button_state *newState, bool isDown)
 {
-    assert(newState->endedDown != isDown);
+    /* TODO(jairo): investigate if this assertion is valid/necessary.
+    Right now it triggers when I use ctrl+win+arrows to navigate
+    between Windows 10 workspaces.
+    assert(newState->endedDown != isDown); */
     newState->endedDown = isDown;
     newState->nHalfTransitions++;
 }
