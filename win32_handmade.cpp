@@ -28,22 +28,10 @@ safeTruncateUint64(uint64_t val)
 struct win32_game_code
 {
     HMODULE gameCodeDll;
+    FILETIME lastUpdated;
     game_update_and_render *updateAndRender;
     game_get_sound_samples *getSoundSamples;
 };
-
-internal void
-win32LoadGameCode(win32_game_code *gameCode)
-{
-    CopyFile("handmade.dll", "tmp_handmade.dll", false);
-    HMODULE gameCodeDll = LoadLibrary("tmp_handmade.dll");
-    if (gameCodeDll)
-    {
-        gameCode->gameCodeDll = gameCodeDll;
-        gameCode->updateAndRender = (game_update_and_render *)GetProcAddress(gameCodeDll, "gameUpdateAndRender");
-        gameCode->getSoundSamples = (game_get_sound_samples *)GetProcAddress(gameCodeDll, "gameGetSoundSamples");
-    }
-}
 
 internal void
 win32UnloadGameCode(win32_game_code *gameCode)
@@ -53,6 +41,41 @@ win32UnloadGameCode(win32_game_code *gameCode)
         FreeLibrary(gameCode->gameCodeDll);
         gameCode->updateAndRender = 0;
         gameCode->getSoundSamples = 0;
+    }
+}
+
+internal void
+win32LoadGameCode(win32_game_code *gameCode)
+{
+    //TODO(jairo): handle executable path handling as Casey did
+    char *dllFileName = "handmade.dll";
+    char *dllTmpFileName = "tmp_handmade.dll";
+    HANDLE hFile = CreateFile(dllFileName, GENERIC_READ, FILE_SHARE_WRITE, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+    FILETIME creationTime;
+    FILETIME lastAccessTime;
+    FILETIME lastWriteTime;
+    if (GetFileTime(hFile, &creationTime, &lastAccessTime, &lastWriteTime))
+    {
+        CloseHandle(hFile);
+        bool needsReloading = CompareFileTime(&gameCode->lastUpdated, &lastWriteTime) < 0;
+        if (needsReloading)
+        {
+            DEBUG("DBG reloading dll %s", dllFileName);
+            win32UnloadGameCode(gameCode);
+            CopyFile(dllFileName, dllTmpFileName, false);
+            HMODULE gameCodeDll = LoadLibrary(dllTmpFileName);
+            if (gameCodeDll)
+            {
+                gameCode->gameCodeDll = gameCodeDll;
+                gameCode->updateAndRender = (game_update_and_render *)GetProcAddress(gameCodeDll, "gameUpdateAndRender");
+                gameCode->getSoundSamples = (game_get_sound_samples *)GetProcAddress(gameCodeDll, "gameGetSoundSamples");
+                gameCode->lastUpdated = lastWriteTime;
+            }
+        }
+    }
+    else
+    {
+        DEBUG("DBG couldn't open dll file %s\n", dllFileName);
     }
 }
 
@@ -611,9 +634,9 @@ WinMain(HINSTANCE hInstance,
             DWORD lastWriteCursor = 0;
             DWORD soundIsValid = false;
             LARGE_INTEGER perfCounterStart = win32GetWallclock();
+            win32_game_code game = {};
             while (running)
             {
-                win32_game_code game;
                 win32LoadGameCode(&game);
                 game_controller_input *oldKeyboardController = getController(oldInput, 0);
                 game_controller_input *newKeyboardController = getController(newInput, 0);
@@ -820,11 +843,12 @@ WinMain(HINSTANCE hInstance,
                 debugMarker->playCursor = lastPlayCursor;
                 debugMarker->writeCursor = lastWriteCursor;
 #endif
-
                 game_input *temp = newInput;
                 newInput = oldInput;
                 oldInput = temp;
+#if 0
                 win32UnloadGameCode(&game);
+#endif
             }
         }
         else

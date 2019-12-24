@@ -10,7 +10,8 @@ set linkFlags=-opt:ref User32.lib Gdi32.lib Kernel32.lib Winmm.lib
 
 pushd build
 
-cl -DHANDMADE_EXPORTS=1 /LD %commonFlags% ../handmade.cpp
+del handmade*.pdb
+cl -DHANDMADE_EXPORTS=1 /LD %commonFlags% ../handmade.cpp /link /PDB:handmade_%RANDOM%.pdb
 cl %commonFlags% ../win32_handmade.cpp /link %linkFlags%
 popd
 
