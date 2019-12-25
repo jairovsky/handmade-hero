@@ -66,6 +66,7 @@ struct game_offscreen_buffer
     int   width;
     int   height;
     int   pitch;
+    int   bytesPerPixel;
 };
 
 struct game_button_state
@@ -118,6 +119,9 @@ struct game_state
     int blueOffset;
     int toneHz;
     float tSine;
+    int playerX;
+    int playerY;
+    float tJump;
 };
 
 struct game_memory

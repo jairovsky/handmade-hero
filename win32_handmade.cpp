@@ -735,6 +735,7 @@ WinMain(HINSTANCE hInstance,
                 buf.width = backbuffer.width;
                 buf.height = backbuffer.height;
                 buf.pitch = backbuffer.pitch;
+                buf.bytesPerPixel = 4;
 
                 game.updateAndRender(&gameMemory, newInput, &buf);
 
@@ -815,7 +816,7 @@ WinMain(HINSTANCE hInstance,
                 }
                 perfCounterStart = win32GetWallclock();
 
-#if HANDMADE_INTERNAL
+#ifdef UNDEF
                 win32DebugSyncDisplay(
                     &backbuffer,
                     arrayCount(debugTimeMarkers),

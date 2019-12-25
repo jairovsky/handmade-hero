@@ -1,3 +1,4 @@
+stopped at 0h24 episode 023
 #include "handmade.h"
 
 void gameOutputSound(game_sound_buffer *buf, int toneHz, float *tSine)
@@ -11,11 +12,14 @@ void gameOutputSound(game_sound_buffer *buf, int toneHz, float *tSine)
         int16_t sampleValue = (int16_t)(sineValue * toneVolume);
         *sampleOut++ = sampleValue;
         *sampleOut++ = sampleValue;
+        *tSine = 0;
+#if 0
         *tSine += 2.0f * PI / (float)wavePeriod;
         if (*tSine > 2 * PI)
         {
             *tSine -= 2 * PI;
         }
+#endif
     }
 }
 
@@ -44,6 +48,30 @@ void renderWeirdGradient(game_offscreen_buffer *buf, int blueOffset, int greenOf
     }
 }
 
+internal void
+renderPlayer(game_offscreen_buffer *videoBuf, int playerX, int playerY)
+{
+    uint8_t *endOfBuffer = (uint8_t *)videoBuf->memory +
+                           videoBuf->bytesPerPixel * videoBuf->width +
+                           videoBuf->pitch * (videoBuf->height-1);
+    for (int x = playerX; x < playerX + 10; x++)
+    {
+        uint8_t *pixel = ((uint8_t *)videoBuf->memory) +
+                         x * videoBuf->bytesPerPixel +
+                         playerY * videoBuf->pitch;
+
+        for (int y = playerY; y < playerY + 10; y++)
+        {
+            if (pixel >= videoBuf->memory && pixel < endOfBuffer)
+            {
+                *(uint32_t *)pixel = 0x00ffffff;
+                pixel += videoBuf->pitch;
+            }
+        }
+    }
+
+}
+
 extern "C" HANDMADE_API GAME_UPDATE_AND_RENDER(gameUpdateAndRender)
 {
     /* NOTE(jairo): ensures that the 'buttons' array has size equal to
@@ -65,9 +93,12 @@ extern "C" HANDMADE_API GAME_UPDATE_AND_RENDER(gameUpdateAndRender)
         gameState->greenOffset = 0;
         gameState->blueOffset = 0;
         gameState->toneHz = 256;
+        gameState->playerX = 100;
+        gameState->playerY = videoBuf->height/2;
+        gameState->tJump = -1.0f;
         memory->isInitialized = true;
     }
-    for (int ctrlIdx = 0; ctrlIdx < arrayCount(input->controllers); ctrlIdx++)
+    for (int ctrlIdx = 0; ctrlIdx < 2; ctrlIdx++)
     {
         game_controller_input *input0 = getController(input, ctrlIdx);
         if (input0->isConnected)
@@ -76,25 +107,39 @@ extern "C" HANDMADE_API GAME_UPDATE_AND_RENDER(gameUpdateAndRender)
             {
                 gameState->toneHz = 256 + (int)(128.0f * input0->stickAverageY);
             }
-            if (input0->moveDown.endedDown)
+            else
             {
-                gameState->greenOffset -= 1;
+                if (input0->moveDown.endedDown)
+                {
+                    gameState->greenOffset -= 1;
+                }
+                if (input0->moveUp.endedDown)
+                {
+                    gameState->greenOffset += 1;
+                }
+                if (input0->moveLeft.endedDown)
+                {
+                    gameState->blueOffset += 1;
+                }
+                if (input0->moveRight.endedDown)
+                {
+                    gameState->blueOffset -= 1;
+                }
             }
-            if (input0->moveUp.endedDown)
+            gameState->playerX += (int)(input0->stickAverageX * 4);
+            if (input0->action1.endedDown && gameState->tJump < -0.99f)
             {
-                gameState->greenOffset += 1;
+                gameState->tJump = 1.0f;
             }
-            if (input0->moveLeft.endedDown)
+            if (gameState->tJump > -1.0f)
             {
-                gameState->blueOffset += 1;
-            }
-            if (input0->moveRight.endedDown)
-            {
-                gameState->blueOffset -= 1;
+                gameState->playerY -= (int)(input0->stickAverageY * 4 + sinf(gameState->tJump) * 5);
+                gameState->tJump -= 0.033f;
             }
         }
     }
     renderWeirdGradient(videoBuf, gameState->blueOffset, gameState->greenOffset);
+    renderPlayer(videoBuf, gameState->playerX, gameState->playerY);
 }
 
 extern "C" HANDMADE_API GAME_GET_SOUND_SAMPLES(gameGetSoundSamples)
