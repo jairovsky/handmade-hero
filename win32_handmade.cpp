@@ -15,9 +15,6 @@ global_var int64_t perfCounterFrequency;
 #define KeyIsDown(param) ((param & (1 << 31))) == 0
 #define AltIsDown(param) ((param & (1 << 29))) != 0
 
-#define GAME_UPDATE_HZ 30
-#define TARGET_SECS_PER_FRAME (1.0f / GAME_UPDATE_HZ)
-
 inline uint32_t
 safeTruncateUint64(uint64_t val)
 {
@@ -599,12 +596,14 @@ WinMain(HINSTANCE hInstance,
         if (wnd)
         {
             HDC hdc = GetDC(wnd);
+            int win32MonitorRefreshRate = GetDeviceCaps(hdc, VREFRESH);
+            int gameUpdateHz = win32MonitorRefreshRate;
+            float targetSecsPerFrame = 1.0f / gameUpdateHz;
             win32_sound_output soundOutput = {};
             soundOutput.samplePerSec = 48000;
             soundOutput.bytesPerSample = sizeof(int16_t) * 2;
             soundOutput.soundBufSize = soundOutput.samplePerSec * soundOutput.bytesPerSample;
-            soundOutput.nLatencySamples = 3 * (soundOutput.samplePerSec / GAME_UPDATE_HZ);
-            soundOutput.safetyBytes = (soundOutput.samplePerSec * soundOutput.bytesPerSample / GAME_UPDATE_HZ);
+            soundOutput.safetyBytes = (soundOutput.samplePerSec * soundOutput.bytesPerSample / gameUpdateHz);
             win32InitDSound(wnd, soundOutput.samplePerSec, soundOutput.soundBufSize);
             win32ClearSoundBuffer(&soundOutput);
             soundBuf->Play(0, 0, DSBPLAY_LOOPING);
@@ -627,7 +626,7 @@ WinMain(HINSTANCE hInstance,
             game_input *newInput = &input[0];
             game_input *oldInput = &input[1];
 #if HANDMADE_INTERNAL
-            win32_debug_time_marker debugTimeMarkers[GAME_UPDATE_HZ / 2] = {0};
+            win32_debug_time_marker debugTimeMarkers[15] = {0};
             DWORD debugLastTimeMarkerIndex = 0;
 #endif
             DWORD lastPlayCursor = 0;
@@ -752,7 +751,7 @@ WinMain(HINSTANCE hInstance,
                         soundIsValid = true;
                     }
                     DWORD byteToLock = (soundOutput.runningSampleIdx * soundOutput.bytesPerSample) % soundOutput.soundBufSize;
-                    DWORD expectedSoundBytesPerFrame = (soundOutput.samplePerSec * soundOutput.bytesPerSample) / GAME_UPDATE_HZ;
+                    DWORD expectedSoundBytesPerFrame = (soundOutput.samplePerSec * soundOutput.bytesPerSample) / gameUpdateHz;
                     DWORD expectedFrameBoundaryByte = playCursor + expectedSoundBytesPerFrame;
                     DWORD safeWriteCursor = writeCursor;
                     if (safeWriteCursor < playCursor)
@@ -797,13 +796,13 @@ WinMain(HINSTANCE hInstance,
                 LARGE_INTEGER workFinishedCounter = win32GetWallclock();
                 float timeSpentOnActualWork = win32GetSecondsDiff(workFinishedCounter, perfCounterStart);
                 float timeToFlipFrame = timeSpentOnActualWork;
-                if (timeToFlipFrame < TARGET_SECS_PER_FRAME)
+                if (timeToFlipFrame < targetSecsPerFrame)
                 {
-                    while (timeToFlipFrame < TARGET_SECS_PER_FRAME)
+                    while (timeToFlipFrame < targetSecsPerFrame)
                     {
                         if (sleepIsGranular)
                         {
-                            DWORD sleepMs = (DWORD)(1000.0f * (TARGET_SECS_PER_FRAME - timeToFlipFrame));
+                            DWORD sleepMs = (DWORD)(1000.0f * (targetSecsPerFrame - timeToFlipFrame));
                             if (sleepMs > 0)
                             {
                                 Sleep(sleepMs);
@@ -825,7 +824,7 @@ WinMain(HINSTANCE hInstance,
                     arrayCount(debugTimeMarkers),
                     debugTimeMarkers,
                     &soundOutput,
-                    TARGET_SECS_PER_FRAME,
+                    targetSecsPerFrame,
                     debugLastTimeMarkerIndex -1);
 #endif
                 win32_window_dimension d = win32GetWindowDimension(wnd);
