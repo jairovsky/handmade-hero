@@ -635,9 +635,12 @@ WinMain(HINSTANCE hInstance,
             DWORD soundIsValid = false;
             LARGE_INTEGER perfCounterStart = win32GetWallclock();
             win32_game_code game = {};
+            win32LoadGameCode(&game);
             while (running)
             {
+#if HANDMADE_INTERNAL
                 win32LoadGameCode(&game);
+#endif
                 game_controller_input *oldKeyboardController = getController(oldInput, 0);
                 game_controller_input *newKeyboardController = getController(newInput, 0);
                 *newKeyboardController = {};
@@ -847,9 +850,6 @@ WinMain(HINSTANCE hInstance,
                 game_input *temp = newInput;
                 newInput = oldInput;
                 oldInput = temp;
-#if 0
-                win32UnloadGameCode(&game);
-#endif
             }
         }
         else

@@ -1,4 +1,3 @@
-stopped at 0h24 episode 023
 #include "handmade.h"
 
 void gameOutputSound(game_sound_buffer *buf, int toneHz, float *tSine)
