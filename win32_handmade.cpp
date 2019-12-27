@@ -604,7 +604,7 @@ WinMain(HINSTANCE hInstance,
             soundOutput.bytesPerSample = sizeof(int16_t) * 2;
             soundOutput.soundBufSize = soundOutput.samplePerSec * soundOutput.bytesPerSample;
             soundOutput.nLatencySamples = 3 * (soundOutput.samplePerSec / GAME_UPDATE_HZ);
-            soundOutput.safetyBytes = (soundOutput.samplePerSec * soundOutput.bytesPerSample / GAME_UPDATE_HZ) / 3;
+            soundOutput.safetyBytes = (soundOutput.samplePerSec * soundOutput.bytesPerSample / GAME_UPDATE_HZ);
             win32InitDSound(wnd, soundOutput.samplePerSec, soundOutput.soundBufSize);
             win32ClearSoundBuffer(&soundOutput);
             soundBuf->Play(0, 0, DSBPLAY_LOOPING);
