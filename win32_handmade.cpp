@@ -788,7 +788,7 @@ WinMain(HINSTANCE hInstance,
                     sBuf.sampleCount = bytesToWrite / soundOutput.bytesPerSample;
                     sBuf.samples = soundSamples;
                     game.getSoundSamples(&gameMemory, &sBuf);
-#if HANDMADE_INTERNAL
+#if UNDEF
                     win32DebugAudioCursorDistance(soundBuf, soundOutput);
 #endif
                     win32FillSoundBuffer(&soundOutput, byteToLock, bytesToWrite, &sBuf);
