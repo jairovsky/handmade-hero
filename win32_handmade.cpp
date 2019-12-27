@@ -171,7 +171,7 @@ win32DisplayBufferInWindow(win32_buffer *buf, HDC hdc, int wWidth, int wHeight)
 {
     StretchDIBits(
         hdc,
-        0, 0, wWidth, wHeight,
+        0, 0, buf->width, buf->height,
         0, 0, buf->width, buf->height,
         buf->memory,
         &buf->info,
