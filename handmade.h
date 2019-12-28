@@ -6,6 +6,15 @@
 #include <math.h>
 #include <cstdio>
 
+#define PI (3.14159265359f)
+
+#define KILOBYTE ((uint64_t)1024)
+#define MEGABYTE ((uint64_t)1024 * KILOBYTE)
+#define GIGABYTE ((uint64_t)1024 * MEGABYTE)
+#define TERABYTE ((uint64_t)1024 * GIGABYTE)
+
+#define arrayCount(a) sizeof(a)/sizeof(a[0])
+
 #ifdef HANDMADE_WIN32
 #ifdef HANDMADE_EXPORTS
 #define HANDMADE_API __declspec(dllexport)
@@ -25,15 +34,6 @@
 #define internal      static
 #define global_var    static
 #define local_persist static
-
-#define PI 3.14159265359f
-
-#define KILOBYTE (uint64_t)1024
-#define MEGABYTE (uint64_t)1024 * KILOBYTE
-#define GIGABYTE (uint64_t)1024 * MEGABYTE
-#define TERABYTE (uint64_t)1024 * GIGABYTE
-
-#define arrayCount(a) sizeof(a)/sizeof(a[0])
 
 #if HANDMADE_INTERNAL
 struct debug_read_file_result

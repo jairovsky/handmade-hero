@@ -2,6 +2,13 @@
 
 #define DEBUG(...) {char cad[512]; sprintf_s(cad, __VA_ARGS__);  OutputDebugString(cad);}
 
+#ifdef HANDMADE_INTERNAL
+#define HANDMADE_BASE_GAME_MEM_ADDR ((LPVOID)(2 * TERABYTE))
+#else
+#define HANDMADE_BASE_GAME_MEM_ADDR (0)
+#endif
+
+
 struct win32_window_dimension
 {
     int width;
