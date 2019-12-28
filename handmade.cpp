@@ -70,13 +70,15 @@ renderPlayer(game_offscreen_buffer *videoBuf, int playerX, int playerY)
 
 extern "C" HANDMADE_API GAME_UPDATE_AND_RENDER(gameUpdateAndRender)
 {
-    /* NOTE(jairo): ensures that the 'buttons' array has size equal to
+    /* ensures that the 'buttons' array has size equal to
        the number of fields in the union struct */
     assert((&input->controllers[0].__struct_end - &input->controllers[0].buttons[0]) ==
            arrayCount(input->controllers[0].buttons));
-    // NOTE(jairo): ensures we have enough memory to store game state
+    // ensures we have enough memory to store game state
     assert(sizeof(game_state) <= memory->permStorageSize);
+
     game_state *gameState = (game_state *)memory->permStorage;
+
     if (!memory->isInitialized)
     {
         char *filename = __FILE__;
@@ -86,14 +88,17 @@ extern "C" HANDMADE_API GAME_UPDATE_AND_RENDER(gameUpdateAndRender)
             memory->DEBUGplatformWriteFile("test.out", file.size, file.content);
             memory->DEBUGplatformFreeFile(file.content);
         }
+
         gameState->greenOffset = 0;
         gameState->blueOffset = 0;
         gameState->toneHz = 256;
         gameState->playerX = 100;
         gameState->playerY = videoBuf->height/2;
         gameState->tJump = -1.0f;
+
         memory->isInitialized = true;
     }
+
     for (int ctrlIdx = 0; ctrlIdx < 2; ctrlIdx++)
     {
         game_controller_input *input0 = getController(input, ctrlIdx);
@@ -122,6 +127,7 @@ extern "C" HANDMADE_API GAME_UPDATE_AND_RENDER(gameUpdateAndRender)
                     gameState->blueOffset -= 1;
                 }
             }
+
             gameState->playerX += (int)(input0->stickAverageX * 4);
             if (input0->action1.endedDown && gameState->tJump < -0.99f)
             {
@@ -134,6 +140,7 @@ extern "C" HANDMADE_API GAME_UPDATE_AND_RENDER(gameUpdateAndRender)
             }
         }
     }
+
     renderWeirdGradient(videoBuf, gameState->blueOffset, gameState->greenOffset);
     renderPlayer(videoBuf, gameState->playerX, gameState->playerY);
 }

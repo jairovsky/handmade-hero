@@ -8,7 +8,7 @@ struct win32_window_dimension
     int height;
 };
 
-struct win32_buffer {
+struct win32_offscreen_buffer {
     BITMAPINFO info;
     void*      memory;
     int        width;

@@ -7,7 +7,7 @@
 
 // TODO fix this global
 global_var bool running = true;
-global_var win32_buffer backbuffer;
+global_var win32_offscreen_buffer backbuffer;
 global_var LPDIRECTSOUNDBUFFER soundBuf;
 global_var int64_t perfCounterFrequency;
 
@@ -141,7 +141,7 @@ win32InitDSound(HWND hwnd, int32_t samplesPerSec, int32_t bufSize)
 }
 
 internal void
-win32ResizeDIBSection(win32_buffer *buf, int width, int height)
+win32ResizeDIBSection(win32_offscreen_buffer *buf, int width, int height)
 {
     if (buf->memory)
     {
@@ -164,7 +164,7 @@ win32ResizeDIBSection(win32_buffer *buf, int width, int height)
 }
 
 internal void
-win32DisplayBufferInWindow(win32_buffer *buf, HDC hdc, int wWidth, int wHeight)
+win32DisplayBufferInWindow(win32_offscreen_buffer *buf, HDC hdc, int wWidth, int wHeight)
 {
     StretchDIBits(
         hdc,
@@ -499,7 +499,7 @@ win32GetSecondsDiff(LARGE_INTEGER end, LARGE_INTEGER start)
 }
 
 internal void
-win32DebugDrawVertical(win32_buffer *backBuf, int x, int top, int bottom, uint32_t color)
+win32DebugDrawVerticalLine(win32_offscreen_buffer *backBuf, int x, int top, int bottom, uint32_t color)
 {
     uint8_t *pixel = (uint8_t *)backBuf->memory + x * backBuf->bytesPerPixel + top * backBuf->pitch;
     for(int y = top; y < bottom; y++)
@@ -510,34 +510,44 @@ win32DebugDrawVertical(win32_buffer *backBuf, int x, int top, int bottom, uint32
 }
 
 internal void
-win32DebugSyncDisplay(win32_buffer *backBuf, int markerCount, win32_debug_time_marker *markers,
-                      win32_sound_output *sound, float secPerFrame, int currentMarker)
+win32DebugDrawAudioCursors(win32_offscreen_buffer *backBuf,
+                           int markerCount,
+                           win32_debug_time_marker *markers,
+                           win32_sound_output *sound,
+                           float secPerFrame,
+                           int currentMarkerIdx)
 {
-    int padx = 16;
-    int pady = 64;
-    int top = pady;
-    int bottom = backbuffer.height - pady*5;
-    float coeff = ((float)backBuf->width - (2 * padx)) / (float)sound->soundBufSize;
+
+#define red 0x00ff0000
+#define white 0x00ffffff
+
+    int paddingLeft = 16;
+    int paddingTop = 64;
+
+    int lineStart = paddingTop;
+    int lineEnd = lineStart + 64;
+
+    float screenWidthToSoundBufferSizeRatio = ((float)backBuf->width - (2 * paddingLeft)) / (float)sound->soundBufSize;
+
     for (int i = 0; i < markerCount; i++)
     {
-        win32_debug_time_marker *currMarker = &markers[i];
-        assert(currMarker->playCursor < sound->soundBufSize);
-        float playFloat = (float)currMarker->playCursor;
-        float writeFloat = (float)currMarker->writeCursor;
-        int playX = padx + (int)(coeff * playFloat);
-        int writeX = padx + (int)(coeff * writeFloat);
-        if (i == currentMarker)
+        win32_debug_time_marker *marker = &markers[i];
+        assert(marker->playCursor < sound->soundBufSize);
+
+        int playX = paddingLeft + (int)(screenWidthToSoundBufferSizeRatio * marker->playCursor);
+        int writeX = paddingLeft + (int)(screenWidthToSoundBufferSizeRatio * marker->writeCursor);
+
+        if (i == currentMarkerIdx)
         {
-        win32DebugDrawVertical(backBuf, playX, top, bottom, 0x00ff0000);
-        win32DebugDrawVertical(backBuf, writeX, top*5, bottom + pady*2, 0x00ff0000);
+            win32DebugDrawVerticalLine(backBuf, playX, lineStart, lineEnd, red);
+            win32DebugDrawVerticalLine(backBuf, writeX, lineStart + 70, lineStart + 128, red);
         }
         else
         {
-        win32DebugDrawVertical(backBuf, playX, top, bottom, 0xffffffff);
-        win32DebugDrawVertical(backBuf, writeX, top*5, bottom + pady*2, 0xffffffff);
+            win32DebugDrawVerticalLine(backBuf, playX, lineStart, lineEnd, white);
+            win32DebugDrawVerticalLine(backBuf, writeX, lineStart + 70, lineStart + 128, white);
         }
     }
-
 }
 
 internal void
@@ -819,7 +829,7 @@ WinMain(HINSTANCE hInstance,
                 perfCounterStart = win32GetWallclock();
 
 #ifdef UNDEF
-                win32DebugSyncDisplay(
+                win32DebugDrawAudioCursors(
                     &backbuffer,
                     arrayCount(debugTimeMarkers),
                     debugTimeMarkers,
