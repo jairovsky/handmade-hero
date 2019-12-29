@@ -31,6 +31,7 @@ void gameOutputSound(game_state *state, game_sound_buffer *buf)
     }
 }
 #endif
+
 void renderWeirdGradient(game_offscreen_buffer *buf, int blueOffset, int greenOffset)
 {
     uint8_t *row = (uint8_t *)buf->memory;
@@ -122,23 +123,48 @@ extern "C" HANDMADE_API GAME_UPDATE_AND_RENDER(gameUpdateAndRender)
     if (!memory->isInitialized)
     {
         memory->isInitialized = true;
+
+        gameState->playerX = 520;
+        gameState->playerY = 50;
     }
 
     for (int ctrlIdx = 0; ctrlIdx < 2; ctrlIdx++)
     {
         game_controller_input *input0 = getController(input, ctrlIdx);
+
+#define playerSpeed (60.0f * input->secsToComputeUpdate)
+        float dPlayerX = 0.0f;
+        float dPlayerY = 0.0f;
+        if (input0->moveDown.endedDown)
+        {
+            dPlayerY += playerSpeed;
+        }
+        if (input0->moveUp.endedDown)
+        {
+            dPlayerY -= playerSpeed;
+        }
+        if (input0->moveLeft.endedDown)
+        {
+            dPlayerX -= playerSpeed;
+        }
+        if (input0->moveRight.endedDown)
+        {
+            dPlayerX += playerSpeed;
+        }
+        gameState->playerX += dPlayerX;
+        gameState->playerY += dPlayerY;
     }
 
     uint32_t tileMap[9][16] = {
-        {1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-        {1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0},
-        {0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0},
-        {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0},
-        {0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 0},
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0},
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0},
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
+        {1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1},
+        {1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1},
+        {1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1},
+        {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
     };
 
     float tileToScreenWRatioPx = videoBuf->width / (float)(arrayCount(tileMap[0]));
@@ -159,6 +185,16 @@ extern "C" HANDMADE_API GAME_UPDATE_AND_RENDER(gameUpdateAndRender)
         }
     }
 
+    float playerWidth = 0.75f * tileToScreenWRatioPx;
+    float playerHeight = tileToScreenHRatioPx;
+    float playerLeft = gameState->playerX - 0.5f * playerWidth;
+    float playerTop = gameState->playerY - playerHeight;
+    drawRectangle(videoBuf,
+                  playerLeft,
+                  playerTop,
+                  playerLeft + playerWidth,
+                  playerTop + playerHeight,
+                  1.0f, 1.0f, 0.0f);
 }
 
 extern "C" HANDMADE_API GAME_GET_SOUND_SAMPLES(gameGetSoundSamples)

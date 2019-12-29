@@ -116,13 +116,8 @@ inline game_controller_input *getController(game_input *input, int idx)
 
 struct game_state
 {
-    int greenOffset;
-    int blueOffset;
-    int toneHz;
-    float tSine;
-    int playerX;
-    int playerY;
-    float tJump;
+    float playerX;
+    float playerY;
 };
 
 struct game_memory
