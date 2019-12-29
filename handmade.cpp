@@ -62,7 +62,7 @@ drawRectangle(game_offscreen_buffer *videoBuf,
               float top,
               float right,
               float bottom,
-              uint32_t color)
+              float r, float g, float b)
 {
     int iLeft = (int)round(left);
     int iTop = (int)round(top);
@@ -89,6 +89,11 @@ drawRectangle(game_offscreen_buffer *videoBuf,
     uint8_t *row = (uint8_t *)videoBuf->memory +
                    iLeft * videoBuf->bytesPerPixel +
                    iTop * videoBuf->pitch;
+
+    uint32_t color = (uint32_t)(
+        (((int)round(r * 255.0f)) << 16) |
+        (((int)round(g * 255.0f)) << 8) |
+        (((int)round(b * 255.0f)) << 0));
 
     for (int y = iTop; y < iBottom; y++)
     {
@@ -124,7 +129,36 @@ extern "C" HANDMADE_API GAME_UPDATE_AND_RENDER(gameUpdateAndRender)
         game_controller_input *input0 = getController(input, ctrlIdx);
     }
 
-    drawRectangle(videoBuf, 10, 10, 970, 600, 0x00ff00ff);
+    uint32_t tileMap[9][16] = {
+        {1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+        {1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0},
+        {0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0},
+        {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0},
+        {0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 0},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0},
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
+    };
+
+    float tileToScreenWRatioPx = videoBuf->width / (float)(arrayCount(tileMap[0]));
+    float tileToScreenHRatioPx = videoBuf->height / (float)(arrayCount(tileMap));
+    drawRectangle(videoBuf, 10, 10, 970, 600, 0.7f, 0.7f, 0.7f);
+    for (int y = 0; y < arrayCount(tileMap); y++)
+    {
+        for (int x = 0; x < arrayCount(tileMap[0]); x++)
+        {
+            if (tileMap[y][x])
+            {
+                float left = x * tileToScreenWRatioPx;
+                float top = y * tileToScreenHRatioPx;
+                float right = left + tileToScreenWRatioPx;
+                float bottom = top + tileToScreenHRatioPx;
+                drawRectangle(videoBuf, left, top, right, bottom, 0.3f, 0.3f, 0.3f);
+            }
+        }
+    }
+
 }
 
 extern "C" HANDMADE_API GAME_GET_SOUND_SAMPLES(gameGetSoundSamples)
