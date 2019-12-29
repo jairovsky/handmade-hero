@@ -105,6 +105,7 @@ struct game_controller_input
 
 struct game_input
 {
+    float secsToComputeUpdate;
     game_controller_input controllers[5];
 };
 inline game_controller_input *getController(game_input *input, int idx)

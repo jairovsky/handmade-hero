@@ -1,6 +1,7 @@
 @echo off
 
 set commonFlags=-DHANDMADE_INTERNAL=1 ^
+   -DHANDMADE_NO_SOUND=1 ^
    -DHANDMADE_SLOW_BUILD=1 ^
    -DHANDMADE_WIN32=1 ^
    -nologo -Oi -GR- -EHa- ^

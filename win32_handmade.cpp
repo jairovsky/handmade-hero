@@ -611,7 +611,7 @@ WinMain(HINSTANCE hInstance,
             int gameUpdateHz = GetDeviceCaps(hdc, VREFRESH);
             float targetSecsPerFrame = 1.0f / gameUpdateHz;
 
-            win32ResizeDIBSection(&backbuffer, 1280, 720);
+            win32ResizeDIBSection(&backbuffer, 960, 540);
 
             win32_game_code game = {};
             win32LoadGameCode(&game);
@@ -670,6 +670,7 @@ WinMain(HINSTANCE hInstance,
                 game_input *temp = newInput;
                 newInput = oldInput;
                 oldInput = temp;
+                newInput->secsToComputeUpdate = targetSecsPerFrame;
 
                 game_controller_input *oldKeyboardController = getController(oldInput, 0);
                 game_controller_input *newKeyboardController = getController(newInput, 0);
@@ -860,7 +861,7 @@ WinMain(HINSTANCE hInstance,
                 }
                 perfCounterStart = win32GetWallclock();
 
-#ifdef HANDMADE_INTERNAL
+#ifdef UNDEF
                 win32DebugDrawAudioCursors(
                     &backbuffer,
                     arrayCount(debugTimeMarkers),
@@ -873,7 +874,7 @@ WinMain(HINSTANCE hInstance,
                 win32_window_dimension d = win32GetWindowDimension(wnd);
                 win32DisplayBufferInWindow(&backbuffer, hdc, d.width, d.height);
 
-#ifdef HANDMADE_INTERNAL
+#ifdef UNDEF
                 win32_debug_time_marker *debugMarker = &debugTimeMarkers[debugLastTimeMarkerIndex++];
                 debugMarker->playCursor = lastSoundPlayCursor;
                 debugMarker->writeCursor = lastSoundWriteCursor;
