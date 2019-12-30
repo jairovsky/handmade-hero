@@ -109,6 +109,30 @@ drawRectangle(game_offscreen_buffer *videoBuf,
     }
 }
 
+struct tile_map {
+    int width;
+    int height;
+    int tileWidthPx;
+    int tileHeightPx;
+    uint32_t * tiles;
+};
+
+#define TM_ACCESS(tm, y, x) (tm.tiles[y * tm.width + x])
+#define TMPTR_ACCESS(tm, y, x) (tm->tiles[y * tm->width + x])
+
+internal bool
+pointCollision(float pointX,
+               float pointY,
+               tile_map *tm)
+{
+    int xTile = (int)pointX / tm->tileWidthPx;
+    int yTile = (int)pointY / tm->tileHeightPx;
+
+    return xTile < 0 || xTile > tm->width ||
+           yTile < 0 || yTile > tm->height ||
+           TMPTR_ACCESS(tm, yTile, xTile);
+}
+
 extern "C" HANDMADE_API GAME_UPDATE_AND_RENDER(gameUpdateAndRender)
 {
     /* ensures that the 'buttons' array has size equal to
@@ -124,15 +148,36 @@ extern "C" HANDMADE_API GAME_UPDATE_AND_RENDER(gameUpdateAndRender)
     {
         memory->isInitialized = true;
 
-        gameState->playerX = 520;
+        gameState->playerX = 510;
         gameState->playerY = 50;
     }
+
+    uint32_t tiles[9][16] = {
+        {1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+        {1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1},
+        {1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1},
+        {1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1},
+        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1},
+        {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+    };
+    tile_map tileMap = {};
+    tileMap.tiles = (uint32_t *)tiles;
+    tileMap.width = arrayCount(tiles[0]);
+    tileMap.height = arrayCount(tiles);
+    tileMap.tileWidthPx = videoBuf->width / tileMap.width;
+    tileMap.tileHeightPx = videoBuf->height / tileMap.height;
+
+    float playerWidth = 0.75f * tileMap.tileWidthPx;
+    float playerHeight = (float)tileMap.tileHeightPx;
 
     for (int ctrlIdx = 0; ctrlIdx < 2; ctrlIdx++)
     {
         game_controller_input *input0 = getController(input, ctrlIdx);
 
-#define playerSpeed (60.0f * input->secsToComputeUpdate)
+        float playerSpeed = (60.0f * input->secsToComputeUpdate);
         float dPlayerX = 0.0f;
         float dPlayerY = 0.0f;
         if (input0->moveDown.endedDown)
@@ -151,42 +196,39 @@ extern "C" HANDMADE_API GAME_UPDATE_AND_RENDER(gameUpdateAndRender)
         {
             dPlayerX += playerSpeed;
         }
-        gameState->playerX += dPlayerX;
-        gameState->playerY += dPlayerY;
+
+        float newPlayerX = gameState->playerX + dPlayerX;
+        float newPlayerY = gameState->playerY + dPlayerY;
+
+        bool collision = pointCollision(newPlayerX - (playerWidth / 2), newPlayerY, &tileMap) ||
+                         pointCollision(newPlayerX + (playerWidth / 2), newPlayerY, &tileMap) ||
+                         pointCollision(newPlayerX - (playerWidth / 2), newPlayerY - (playerHeight/2), &tileMap) ||
+                         pointCollision(newPlayerX + (playerWidth / 2), newPlayerY - (playerHeight/2), &tileMap);
+
+
+        if (!collision)
+        {
+            gameState->playerX += dPlayerX;
+            gameState->playerY += dPlayerY;
+        }
     }
 
-    uint32_t tileMap[9][16] = {
-        {1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-        {1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1},
-        {1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1},
-        {1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1},
-        {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1},
-        {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
-    };
-
-    float tileToScreenWRatioPx = videoBuf->width / (float)(arrayCount(tileMap[0]));
-    float tileToScreenHRatioPx = videoBuf->height / (float)(arrayCount(tileMap));
     drawRectangle(videoBuf, 10, 10, 970, 600, 0.7f, 0.7f, 0.7f);
-    for (int y = 0; y < arrayCount(tileMap); y++)
+    for (int y = 0; y < tileMap.height; y++)
     {
-        for (int x = 0; x < arrayCount(tileMap[0]); x++)
+        for (int x = 0; x < tileMap.width; x++)
         {
-            if (tileMap[y][x])
+            if (TM_ACCESS(tileMap, y, x))
             {
-                float left = x * tileToScreenWRatioPx;
-                float top = y * tileToScreenHRatioPx;
-                float right = left + tileToScreenWRatioPx;
-                float bottom = top + tileToScreenHRatioPx;
+                float left = (float)(x * tileMap.tileWidthPx);
+                float top = (float)(y * tileMap.tileHeightPx);
+                float right = (float)(left + tileMap.tileWidthPx);
+                float bottom = (float)(top + tileMap.tileHeightPx);
                 drawRectangle(videoBuf, left, top, right, bottom, 0.3f, 0.3f, 0.3f);
             }
         }
     }
 
-    float playerWidth = 0.75f * tileToScreenWRatioPx;
-    float playerHeight = tileToScreenHRatioPx;
     float playerLeft = gameState->playerX - 0.5f * playerWidth;
     float playerTop = gameState->playerY - playerHeight;
     drawRectangle(videoBuf,

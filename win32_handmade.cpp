@@ -174,9 +174,16 @@ win32ResizeDIBSection(win32_offscreen_buffer *buf, int width, int height)
 internal void
 win32DisplayBufferInWindow(win32_offscreen_buffer *buf, HDC hdc, int wWidth, int wHeight)
 {
+    int xOffset = wWidth / 2 - (buf->width / 2);
+    int yOffset = wHeight / 2 - (buf->height / 2);
+    PatBlt(hdc, 0, 0, wWidth, yOffset, BLACKNESS);
+    PatBlt(hdc, 0, 0, xOffset, wHeight, BLACKNESS);
+    PatBlt(hdc, 0, yOffset + buf->height, wWidth, wHeight, BLACKNESS);
+    PatBlt(hdc, xOffset + buf->width, 0, wWidth, wHeight, BLACKNESS);
+
     StretchDIBits(
         hdc,
-        0, 0, buf->width, buf->height,
+        xOffset, yOffset, buf->width, buf->height,
         0, 0, buf->width, buf->height,
         buf->memory,
         &buf->info,
